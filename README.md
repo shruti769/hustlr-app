@@ -1,56 +1,67 @@
-# Welcome to your Expo app 👋
+# HUSTLR
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native (Expo Router) build of the HUSTLR resale-flipping app, transcribed
+screen-for-screen from the design prototype.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run it
 
 ```bash
-npm run reset-project
+npm install
+npx expo start        # then press i (iOS), a (Android), or w (web)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Structure
 
-### Other setup steps
+```
+src/
+  app/                        # expo-router routes — the file tree IS the nav tree
+    _layout.tsx               # fonts, dark theme, AppProvider, toast
+    index.tsx                 # cold start → /login
+    (auth)/                   # no bottom nav
+      login.tsx  signup.tsx  forgot.tsx
+    (app)/                    # signed in — persistent bottom nav
+      _layout.tsx             # Stack + <BottomNav/>; tabs cross-fade, rest push
+      home.tsx  deals.tsx  fliptok.tsx  inventory.tsx  profile.tsx   ← the 5 tabs
+      deal/[id].tsx           # deal detail
+      add-listing.tsx  leaderboard.tsx  watchlist.tsx  notifications.tsx
+      prize.tsx  plans.tsx  dashboard.tsx  calculator.tsx
+      tracker.tsx  trends.tsx  analyser.tsx  quick.tsx  screens.tsx
+  components/
+    icons.tsx                 # SVG icons, paths traced from the prototype
+    ui/                       # Screen, BottomNav, Toast, Card, Field, Button,
+                              # Chip, GlowCard, PhotoSlot, TopBar, Touch, brand
+  constants/
+    theme.ts                  # every colour + radius in the design
+    type.ts                   # archivo() / mono() — CSS `font:` shorthand → RN
+  data/mock.ts                # all screen content; swap for an API later
+  hooks/use-back.ts           # pop, or fall back to the current tab
+  store/app-store.tsx         # app state (watchlist, likes, calc, plan, toast…)
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### Design system
 
-## Learn more
+Two helpers keep type identical to the prototype's CSS. `archivo(size, weight,
+{ ls, lh, color })` and `mono(...)` take letter-spacing in **em** and
+line-height as a **multiplier**, exactly as written in the design, and resolve
+them to the pixel values React Native expects.
 
-To learn more about developing your project with Expo, look at the following resources:
+Colours live only in `constants/theme.ts`. No screen hardcodes a hex.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Fonts are Archivo (400–900) and JetBrains Mono (400–800), loaded at the root
+layout; the app renders nothing until they are ready, so there is no flash of
+fallback type.
 
-## Join the community
+### Navigation
 
-Join our community of developers creating universal apps.
+The bottom nav is rendered by `(app)/_layout.tsx` *outside* the navigator, so it
+stays mounted while screens transition — the prototype's fixed chrome. Tapping a
+tab `replace`s the route (tabs cross-fade in 150ms); everything else `push`es and
+slides in from the right. `useTab(id)` marks which tab a screen belongs to so the
+nav stays lit while you browse sub-screens.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Screen directory
+
+`/screens` (Profile → **All screens**) lists every route. The prototype reached
+Dashboard, Calculator, Price Tracker, Market Trends, Quick Analyser and Analyse
+Listing through its side index rather than from inside the app, so this screen
+gives them a real entry point.
