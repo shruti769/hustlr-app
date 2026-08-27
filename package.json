@@ -6,6 +6,7 @@
     "@expo-google-fonts/archivo": "^0.4.2",
     "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
     "@expo-google-fonts/geist-mono": "^0.4.3",
+    "@expo-google-fonts/hanken-grotesk": "^0.4.3",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/ui": "~57.0.13",
@@ -36,6 +37,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.1",
     "typescript": "~6.0.3"
   },
   "scripts": {

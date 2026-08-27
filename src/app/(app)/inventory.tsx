@@ -1,3 +1,4 @@
+import { Image, type ImageSource } from 'expo-image';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -8,6 +9,14 @@ import { Colors } from '@/constants/theme';
 import { archivo, mono } from '@/constants/type';
 import { INVENTORY, type InventoryStatus } from '@/data/mock';
 import { useTab } from '@/store/app-store';
+
+const INVENTORY_IMAGES: Record<string, ImageSource> = {
+  'AJ4-WHT-10': require('../../../assets/images/deals/air-jordan-1.png'),
+  'DYS-V11-02': require('../../../assets/images/deals/dyson.png'),
+  'PKM-151-SB': require('../../../assets/images/deals/pokemon.png'),
+  'LGO-HOG-71': require('../../../assets/images/deals/lego.png'),
+  'NSW-OLED-W': require('../../../assets/images/deals/nintendo-switch.png'),
+};
 
 const STATUS: Record<InventoryStatus, { color: string; bg: string }> = {
   SOLD: { color: Colors.green, bg: Colors.greenGlass12 },
@@ -44,7 +53,13 @@ export default function InventoryScreen() {
           const status = STATUS[item.status];
           return (
             <View key={item.sku} style={styles.row}>
-              <PhotoSlot radius={12} style={styles.thumb} />
+              <PhotoSlot radius={12} style={styles.thumb}>
+                <Image
+                  source={INVENTORY_IMAGES[item.sku]}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                />
+              </PhotoSlot>
               <View style={styles.meta}>
                 <Text style={archivo(14, 700, { color: Colors.text })} numberOfLines={1}>
                   {item.title}
@@ -78,7 +93,16 @@ function Total({ label, value, highlight = false }: { label: string; value: stri
 
 const styles = StyleSheet.create({
   content: { paddingTop: 6, paddingHorizontal: 20 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+    paddingBottom: 17,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.hairlineCard,
+  },
 
   totals: { flexDirection: 'row', gap: 9, marginTop: 16 },
   total: {
@@ -96,14 +120,14 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     backgroundColor: Colors.surfaceAlt,
     borderWidth: 1,
     borderColor: Colors.border08,
-    borderRadius: 15,
-    padding: 13,
+    borderRadius: 13,
+    padding: 11,
   },
-  thumb: { width: 46, height: 46 },
+  thumb: { width: 40, height: 40 },
   meta: { flex: 1, minWidth: 0 },
   sku: { marginTop: 3 },
   rowEnd: { alignItems: 'flex-end' },

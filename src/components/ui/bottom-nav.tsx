@@ -44,8 +44,8 @@ export function BottomNav() {
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             accessibilityLabel={label}>
-            <Icon size={21} color={color} width={1.74167} />
-            <Text style={mono(7.5, 700, { ls: 0.04, color })} numberOfLines={1}>
+            <Icon size={22} color={color} width={1.8} />
+            <Text style={mono(8, 700, { ls: 0.04, color })} numberOfLines={1}>
               {label}
             </Text>
           </Touch>
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderTopWidth: 1,
-    borderTopColor: Colors.hairlineCard,
+    borderTopColor: Colors.border08,
     backgroundColor: Colors.nav,
     flexDirection: 'row',
     alignItems: 'center',
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 7,
     paddingVertical: 9,
   },
 });

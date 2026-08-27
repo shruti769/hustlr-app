@@ -1,3 +1,4 @@
+import { Image, type ImageSource } from 'expo-image';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -7,9 +8,16 @@ import { PhotoSlot } from '@/components/ui/photo-slot';
 import { Screen } from '@/components/ui/screen';
 import { Touch } from '@/components/ui/touch';
 import { Colors } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { archivo, bricolageBold, mono } from '@/constants/type';
 import { FLIPS, type Flip } from '@/data/mock';
 import { useApp, useTab } from '@/store/app-store';
+
+const FLIP_IMAGES: Record<string, ImageSource> = {
+  f1: require('../../../assets/images/deals/fliptok-air-jordan-white.png'),
+  f2: require('../../../assets/images/deals/dyson.png'),
+  f3: require('../../../assets/images/deals/pokemon.png'),
+  f4: require('../../../assets/images/deals/lego.png'),
+};
 
 export default function FlipTokScreen() {
   useTab('fliptok');
@@ -17,7 +25,7 @@ export default function FlipTokScreen() {
   return (
     <Screen contentStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={archivo(22, 800, { ls: -0.02, color: Colors.text })}>Flip Tok</Text>
+        <Text style={bricolageBold(22, { lh: 1, ls: -0.4 / 22, color: Colors.text })}>Flip Tok</Text>
         <PillButton label="Leaderboard" padH={16} onPress={() => router.push('/leaderboard')} />
       </View>
 
@@ -52,6 +60,7 @@ function FlipPost({ flip }: { flip: Flip }) {
       </View>
 
       <PhotoSlot hint={`${flip.item} photo`} style={styles.image}>
+        <Image source={FLIP_IMAGES[flip.id]} style={StyleSheet.absoluteFill} contentFit="cover" />
         <View style={styles.statsBar} pointerEvents="none">
           <View style={styles.statCol}>
             <Text style={mono(8.5, 500, { ls: 0.16, color: Colors.subLight })}>BOUGHT</Text>
@@ -139,16 +148,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
 
-  image: { height: 250 },
+  image: { height: 290 },
   statsBar: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: 16,
+    right: 16,
+    bottom: 10,
     flexDirection: 'row',
     backgroundColor: Colors.scrim,
     paddingVertical: 11,
     paddingHorizontal: 16,
+    borderRadius: 14,
+    overflow: 'hidden',
   },
   statCol: { flex: 1 },
   statColEnd: { alignItems: 'flex-end' },

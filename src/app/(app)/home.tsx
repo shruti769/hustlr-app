@@ -1,15 +1,21 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { BellIcon } from '@/components/icons';
-import { LogoMark } from '@/components/ui/brand';
+import {
+  BellIcon,
+  BoltIcon,
+  PackageEmojiIcon,
+  WarningEmojiIcon,
+} from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card, StatTile } from '@/components/ui/card';
 import { GlowCard } from '@/components/ui/glow-card';
 import { Screen } from '@/components/ui/screen';
 import { Touch } from '@/components/ui/touch';
+import { HUSTLR_LOGO_DATA_URI } from '@/constants/hustlr-logo';
 import { Colors } from '@/constants/theme';
-import { archivo, mono, spaceGroteskBold } from '@/constants/type';
+import { archivo, hankenGrotesk, mono, spaceGroteskBold } from '@/constants/type';
 import { useTab } from '@/store/app-store';
 
 /** The three "Your arsenal" entry cards, each with its own accent. */
@@ -41,12 +47,14 @@ export default function HomeScreen() {
   useTab('home');
 
   return (
-    <Screen contentStyle={styles.content}>
+    <Screen minimumTopInset={44} contentStyle={styles.content}>
       <View style={styles.header}>
-        <View style={styles.brand}>
-          <LogoMark size={26} fontSize={15} />
-          <Text style={archivo(15, 900, { ls: 0.04, color: Colors.text })}>HUSTLR</Text>
-        </View>
+        <Image
+          source={{ uri: HUSTLR_LOGO_DATA_URI }}
+          style={styles.brandLogo}
+          contentFit="contain"
+          accessibilityLabel="HUSTLR"
+        />
         <View style={styles.headerActions}>
           <Touch
             style={styles.iconButton}
@@ -65,32 +73,42 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <GlowCard>
+      <GlowCard border={Colors.greenBorder25} style={styles.heroCard}>
         <View style={styles.badgeRow}>
           <View style={styles.badge}>
-            <Text style={archivo(11, 700, { color: Colors.brand })}>⚡ The AI Resale Weapon.</Text>
+            <BoltIcon size={15} color="#FFD43B" fill="#FFD43B" width={1.2} />
+            <Text style={archivo(11, 700, { color: Colors.brand })}>The AI Resale Weapon.</Text>
           </View>
         </View>
         <Text style={[spaceGroteskBold(38, { lh: 1.02, ls: -0.76 / 38, color: Colors.text }), styles.heroTitle]}>
           Stop Browsing.{'\n'}Start Stacking.
         </Text>
-        <Text style={[archivo(13, 400, { lh: 1.6, color: Colors.sub }), styles.heroBody]}>
+        <Text style={[hankenGrotesk(14, { lh: 1.5, ls: 0, color: Colors.sub }), styles.heroBody]}>
           HUSTLR is your unfair advantage. AI scans the markets, scores every listing, detects scams,
           and shows you the profit before you buy.
         </Text>
         <Button
-          label="🔥 Find Hot Deals"
+          label="Find Hot Deals"
+          icon={
+            <Image
+              source={require('../../../assets/images/icons/fire-emoji.png')}
+              style={styles.fireIcon}
+              contentFit="contain"
+            />
+          }
+          tone="green"
           size={14}
-          padding={15}
+          padding={14}
           onPress={() => router.push('/deals')}
           style={styles.heroCta}
         />
         <Button
-          label="📦 My Inventory"
+          label="My Inventory"
+          icon={<PackageEmojiIcon size={19} />}
           tone="ghost"
           size={14}
           weight={700}
-          padding={15}
+          padding={14}
           onPress={() => router.push('/inventory')}
           style={styles.heroCtaSecondary}
         />
@@ -134,17 +152,20 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      <Text style={[archivo(10, 400, { lh: 1.6, color: Colors.disclaimer }), styles.disclaimer]}>
-        <Text style={archivo(10, 400, { color: Colors.gold })}>⚠ Risk Disclaimer</Text>: HUSTLR
-        provides AI-generated deal analysis for informational purposes only. Always verify listings
-        independently before purchasing.
-      </Text>
+      <View style={styles.disclaimer}>
+        <WarningEmojiIcon size={13} />
+        <Text style={[archivo(10, 400, { lh: 1.6, color: Colors.muted }), styles.disclaimerText]}>
+          <Text style={archivo(10, 400, { color: Colors.disclaimer })}>Risk Disclaimer:</Text> HUSTLR
+          provides AI-generated deal analysis for informational purposes only. Always verify listings
+          independently before purchasing.
+        </Text>
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: 2, paddingHorizontal: 16 },
+  content: { paddingTop: 2, paddingHorizontal: 11 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -152,7 +173,7 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 16,
   },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  brandLogo: { width: 80, height: 24 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   iconButton: {
     width: 36,
@@ -175,7 +196,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeRow: { flexDirection: 'row' },
+  heroCard: { paddingBottom: 27 },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
     borderWidth: 1,
     borderColor: Colors.brandBorder35,
     backgroundColor: Colors.greenGlass,
@@ -185,6 +210,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: { marginTop: 16 },
   heroBody: { marginTop: 12 },
+  fireIcon: { width: 19, height: 19 },
   heroCta: { marginTop: 20 },
   heroCtaSecondary: { marginTop: 10 },
   grid: { gap: 11, marginTop: 14 },
@@ -194,5 +220,16 @@ const styles = StyleSheet.create({
   arsenal: { gap: 12 },
   arsenalBody: { marginTop: 8 },
   arsenalCta: { marginTop: 12 },
-  disclaimer: { marginTop: 26, textAlign: 'center', paddingHorizontal: 6 },
+  disclaimer: {
+    marginTop: 26,
+    width: '100%',
+    maxWidth: 350,
+    alignSelf: 'center',
+    paddingLeft: 28,
+    paddingRight: 6,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  disclaimerText: { flex: 1, textAlign: 'center' },
 });

@@ -11,18 +11,27 @@ type ScreenProps = {
   withNav?: boolean;
   /** Auth screens stretch their content to fill the viewport. */
   fill?: boolean;
+  /** Fallback top inset for environments (notably web previews) reporting zero. */
+  minimumTopInset?: number;
 };
 
 /**
  * Standard screen body: dark canvas, safe-area top, scrolling content that
  * clears the floating bottom nav.
  */
-export function Screen({ children, contentStyle, withNav = true, fill = false }: ScreenProps) {
+export function Screen({
+  children,
+  contentStyle,
+  withNav = true,
+  fill = false,
+  minimumTopInset = 0,
+}: ScreenProps) {
   const insets = useSafeAreaInsets();
   const bottomPad = withNav ? NAV_HEIGHT + insets.bottom : insets.bottom;
+  const topInset = Math.max(insets.top, minimumTopInset);
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: topInset }]}>
       <ScrollView
         style={styles.scroll}
         // Bottom padding comes last so a screen's own content style can never

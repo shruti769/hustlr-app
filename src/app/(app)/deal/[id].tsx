@@ -1,8 +1,10 @@
+import { Image, type ImageSource } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import { BookmarkIcon } from '@/components/icons';
+import { BookmarkIcon, WarningEmojiIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GlowCard } from '@/components/ui/glow-card';
@@ -11,13 +13,28 @@ import { Screen } from '@/components/ui/screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { Touch } from '@/components/ui/touch';
 import { Colors, FILL } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { archivo, bricolageExtraBold, mono } from '@/constants/type';
 import { COMPS, DEALS } from '@/data/mock';
 import { useBack } from '@/hooks/use-back';
 import { money, useApp } from '@/store/app-store';
 
 /** Circumference of the r=23 score ring. */
 const RING = 144.5;
+
+const DEAL_IMAGES: Record<string, ImageSource> = {
+  aj4: require('../../../../assets/images/deals/air-jordan.png'),
+  dys: require('../../../../assets/images/deals/dyson.png'),
+  pkm: require('../../../../assets/images/deals/pokemon.png'),
+};
+
+const DEAL_GALLERIES: Record<string, ImageSource[]> = {
+  aj4: [
+    require('../../../../assets/images/deals/air-jordan-1.png'),
+    require('../../../../assets/images/deals/air-jordan-2.png'),
+    require('../../../../assets/images/deals/air-jordan-3.png'),
+    require('../../../../assets/images/deals/air-jordan-4.png'),
+  ],
+};
 
 const VERDICT = [
   { icon: '✓', color: Colors.brand, text: 'High demand — 42 recent sales' },
@@ -30,6 +47,8 @@ export default function DealDetailScreen() {
   const deal = DEALS.find((d) => d.id === id) ?? DEALS[0];
   const back = useBack('/deals');
   const { watch, toggleWatch, flash } = useApp();
+  const [selectedPhoto, setSelectedPhoto] = useState(0);
+  const gallery = DEAL_GALLERIES[deal.id] ?? Array(4).fill(DEAL_IMAGES[deal.id]);
 
   const watching = watch.includes(deal.id);
   const fees = deal.sellN * 0.129;
@@ -70,8 +89,15 @@ export default function DealDetailScreen() {
       />
 
       <PhotoSlot hint={`${deal.title} photo`} style={styles.hero}>
+        {gallery[selectedPhoto] ? (
+          <Image
+            source={gallery[selectedPhoto]}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+          />
+        ) : null}
         <View style={styles.heroBadge}>
-          <Text style={archivo(12.5, 800, { color: Colors.onBrand })}>{deal.profit} PROFIT</Text>
+          <Text style={archivo(12.5, 800, { color: Colors.onGreen })}>{deal.profit} PROFIT</Text>
         </View>
         <View style={styles.ring}>
           <Svg width={54} height={54} viewBox="0 0 54 54">
@@ -81,7 +107,7 @@ export default function DealDetailScreen() {
               cy="27"
               r="23"
               fill="none"
-              stroke={Colors.brand}
+              stroke={Colors.green}
               strokeWidth={3.4}
               strokeLinecap="round"
               strokeDasharray={`${((parseFloat(deal.score) / 10) * RING).toFixed(1)} ${RING}`}
@@ -97,18 +123,39 @@ export default function DealDetailScreen() {
 
       <View style={styles.thumbs}>
         {[0, 1, 2, 3].map((i) => (
-          <PhotoSlot
+          <Touch
             key={i}
-            light
-            radius={9}
-            style={[styles.thumb, { borderColor: i === 0 ? Colors.brand : Colors.border }]}
-          />
+            onPress={() => setSelectedPhoto(i)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedPhoto === i }}
+            accessibilityLabel={`View product photo ${i + 1}`}
+            style={[
+              styles.thumb,
+              { borderColor: selectedPhoto === i ? Colors.green : Colors.border },
+            ]}>
+            <PhotoSlot light radius={8} style={styles.thumbPhoto}>
+              {gallery[i] ? (
+                <Image
+                  source={gallery[i]}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                />
+              ) : null}
+            </PhotoSlot>
+          </Touch>
         ))}
       </View>
 
       <View style={styles.body}>
         <Text style={mono(9.5, 600, { ls: 0.18, color: Colors.brand })}>{deal.specs}</Text>
-        <Text style={[archivo(20, 800, { ls: -0.025, lh: 1.2, color: Colors.text }), styles.longTitle]}>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.78}
+          style={[
+            bricolageExtraBold(24, { ls: -0.7 / 24, lh: 1.1, color: Colors.text }),
+            styles.longTitle,
+          ]}>
           {deal.longTitle}
         </Text>
         <Text style={[mono(9.5, 500, { ls: 0.12, color: Colors.muted }), styles.sourceLong]}>
@@ -131,7 +178,7 @@ export default function DealDetailScreen() {
             </View>
             <View style={styles.priceCol}>
               <Text style={mono(8.5, 500, { ls: 0.18, color: Colors.muted })}>PROFIT</Text>
-              <Text style={[archivo(18, 800, { color: Colors.brand }), styles.priceValue]}>
+              <Text style={[archivo(18, 800, { color: Colors.green }), styles.priceValue]}>
                 {deal.profit}
               </Text>
             </View>
@@ -151,7 +198,11 @@ export default function DealDetailScreen() {
           <View style={styles.verdictList}>
             {VERDICT.map((v) => (
               <View key={v.text} style={styles.verdictRow}>
-                <Text style={archivo(13, 800, { color: v.color })}>{v.icon}</Text>
+                {v.icon === '⚠' ? (
+                  <WarningEmojiIcon size={14} />
+                ) : (
+                  <Text style={archivo(13, 800, { color: v.color })}>{v.icon}</Text>
+                )}
                 <Text style={[archivo(13, 500, { lh: 1.4, color: Colors.textSoft }), styles.verdictText]}>
                   {v.text}
                 </Text>
@@ -176,7 +227,7 @@ export default function DealDetailScreen() {
         </Card>
 
         <GlowCard
-          opacity={0.16}
+          opacity={0.23}
           cx={0.2}
           cy={0.4}
           rx={1.2}
@@ -186,7 +237,7 @@ export default function DealDetailScreen() {
           border={Colors.brandBorder22}
           radius={16}
           padding={15}
-          style={styles.block}>
+          style={[styles.block, styles.profitCard]}>
           <Text style={mono(9, 500, { ls: 0.18, color: Colors.sub })}>PROFIT BREAKDOWN</Text>
           <View style={styles.breakdownList}>
             {breakdown.map((b) => (
@@ -204,6 +255,7 @@ export default function DealDetailScreen() {
 
         <Button
           label="Lock this deal"
+          tone="green"
           radius={13}
           onPress={() => flash(`${deal.title} locked in`)}
           style={styles.lock}
@@ -253,12 +305,12 @@ const styles = StyleSheet.create({
   },
   watchButtonOn: { borderColor: Colors.brandBorder45 },
 
-  hero: { height: 200 },
+  hero: { height: 225 },
   heroBadge: {
     position: 'absolute',
     top: 12,
     left: 16,
-    backgroundColor: Colors.brand,
+    backgroundColor: Colors.green,
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 9,
@@ -267,7 +319,8 @@ const styles = StyleSheet.create({
   ringLabel: { ...FILL, alignItems: 'center', justifyContent: 'center' },
 
   thumbs: { flexDirection: 'row', gap: 9, paddingTop: 12, paddingHorizontal: 16 },
-  thumb: { width: 52, height: 44, borderWidth: 2 },
+  thumb: { width: 48, height: 48, borderWidth: 2, borderRadius: 10, overflow: 'hidden' },
+  thumbPhoto: { flex: 1 },
 
   body: { paddingTop: 16, paddingHorizontal: 16 },
   longTitle: { marginTop: 9 },
@@ -304,6 +357,13 @@ const styles = StyleSheet.create({
   compMeta: { marginTop: 4 },
 
   breakdownList: { gap: 12, marginTop: 14 },
+  profitCard: {
+    shadowColor: Colors.green,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 28,
+    elevation: 12,
+  },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   netRow: {
     flexDirection: 'row',

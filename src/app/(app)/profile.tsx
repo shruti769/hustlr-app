@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { BellIcon, BoltIcon, BookmarkIcon, GiftIcon, GridIcon, LogoutIcon } from '@/components/icons';
+import { BellIcon, BoltIcon, BookmarkIcon, GiftIcon, LogoutIcon } from '@/components/icons';
 import { Card } from '@/components/ui/card';
 import { GlowCard } from '@/components/ui/glow-card';
 import { Screen } from '@/components/ui/screen';
@@ -46,7 +46,7 @@ export default function ProfileScreen() {
         stop={0.6}
         background={Colors.surface}
         radius={18}
-        padding={18}
+        padding={20}
         style={styles.identity}>
         <View style={styles.identityRow}>
           <View style={styles.identityAvatar}>
@@ -99,7 +99,6 @@ export default function ProfileScreen() {
           label={`Prize entries (${entries})`}
           onPress={() => router.push('/prize')}
         />
-        <ActionRow icon={<GridIcon />} label="All screens" onPress={() => router.push('/screens')} />
         <ActionRow
           icon={<LogoutIcon />}
           label="Log out"
@@ -146,7 +145,7 @@ function ActionRow({
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: 2, paddingHorizontal: 16 },
+  content: { paddingTop: 2, paddingHorizontal: 12 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -169,9 +168,9 @@ const styles = StyleSheet.create({
   identity: { marginTop: 0 },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   identityAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 15,
+    width: 60,
+    height: 60,
+    borderRadius: 17,
     backgroundColor: Colors.avatarBg,
     borderWidth: 1,
     borderColor: Colors.brandBorder40,

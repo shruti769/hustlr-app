@@ -27,6 +27,8 @@ export const Colors = {
   surfaceButton: '#121715',
   /** Pill / search field */
   chip: '#1B201E',
+  search: '#23272F',
+  searchBorder: '#3A4049',
   /** Bottom navigation bar */
   nav: '#0A0D0C',
   /** Green-tinted input (money fields) */
@@ -67,6 +69,7 @@ export const Colors = {
 
   /** Accents */
   gold: '#E9C46A',
+  orange: '#D98242',
   red: '#FF5C5C',
   blue: '#7AA2FF',
   blueAlt: '#90A0FF',
@@ -111,8 +114,8 @@ export const Colors = {
   tileNeutral: 'rgba(232,236,233,0.06)',
 
   /** Bottom-nav item states */
-  navActive: '#5CC96B',
-  navInactive: '#5c665f',
+  navActive: '#20C565',
+  navInactive: '#6F786F',
 
   /** Photo placeholder gradient (135deg) */
   photoFrom: '#16201a',

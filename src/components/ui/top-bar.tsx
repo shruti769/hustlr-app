@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
-import { ChevronLeftIcon } from '@/components/icons';
+import { ArrowLeftIcon } from '@/components/icons';
 import { Touch } from '@/components/ui/touch';
 import { Colors } from '@/constants/theme';
 import { archivo, mono } from '@/constants/type';
@@ -11,19 +11,23 @@ export function TopBar({
   onBack,
   right,
   titleFlex = false,
+  titleStyle,
+  style,
 }: {
   title: string;
   onBack: () => void;
   right?: React.ReactNode;
   /** Let the title take the free space so `right` sits at the edge. */
   titleFlex?: boolean;
+  titleStyle?: StyleProp<TextStyle>;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={styles.bar}>
+    <View style={[styles.bar, style]}>
       <Touch style={styles.backBox} onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
-        <ChevronLeftIcon />
+        <ArrowLeftIcon size={18} color={Colors.subLight} width={1.8} />
       </Touch>
-      <Text style={[archivo(19, 800, { ls: -0.02, color: Colors.text }), titleFlex && styles.grow]}>
+      <Text style={[archivo(19, 800, { ls: -0.02, color: Colors.text }), titleFlex && styles.grow, titleStyle]}>
         {title}
       </Text>
       {right}

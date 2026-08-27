@@ -11,12 +11,14 @@ export function Chip({
   onPress,
   padV = 9,
   padH = 16,
+  size = 12,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
   padV?: number;
   padH?: number;
+  size?: number;
 }) {
   return (
     <Touch
@@ -28,10 +30,10 @@ export function Chip({
         paddingHorizontal: padH,
         borderRadius: 20,
         borderWidth: 1,
-        backgroundColor: active ? Colors.brand : Colors.chip,
-        borderColor: active ? Colors.brand : Colors.border08,
+        backgroundColor: active ? Colors.green : Colors.chip,
+        borderColor: active ? Colors.green : Colors.border08,
       }}>
-      <Text style={archivo(12, 700, { color: active ? Colors.onBrand : Colors.textSoft2 })}>
+      <Text style={archivo(size, 700, { color: active ? Colors.onGreen : Colors.textSoft2 })}>
         {label}
       </Text>
     </Touch>

@@ -1,3 +1,4 @@
+import { Image, type ImageSource } from 'expo-image';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -11,6 +12,12 @@ import { Colors } from '@/constants/theme';
 import { archivo, mono } from '@/constants/type';
 import { CATEGORIES, DEALS, type Deal } from '@/data/mock';
 import { riskColor, scoreColor, useApp, useTab } from '@/store/app-store';
+
+const DEAL_IMAGES: Record<string, ImageSource> = {
+  aj4: require('../../../assets/images/deals/air-jordan.png'),
+  dys: require('../../../assets/images/deals/dyson.png'),
+  pkm: require('../../../assets/images/deals/pokemon.png'),
+};
 
 export default function DealsScreen() {
   useTab('deals');
@@ -29,7 +36,9 @@ export default function DealsScreen() {
 
   return (
     <Screen contentStyle={styles.content}>
-      <Text style={[archivo(22, 800, { ls: -0.02, color: Colors.text }), styles.title]}>Hot Deals</Text>
+      <View style={styles.titleBar}>
+        <Text style={[archivo(22, 800, { ls: -0.02, color: Colors.text }), styles.title]}>Hot Deals</Text>
+      </View>
 
       <View style={[styles.searchBar, focused && styles.searchBarFocused]}>
         <SearchIcon />
@@ -42,7 +51,7 @@ export default function DealsScreen() {
           placeholderTextColor={Colors.sub}
           selectionColor={Colors.green}
           autoCorrect={false}
-          style={[styles.searchInput, archivo(13, 500, { color: Colors.text })]}
+          style={[styles.searchInput, archivo(14, 400, { color: Colors.text })]}
         />
       </View>
 
@@ -76,6 +85,9 @@ function DealCard({ deal }: { deal: Deal }) {
   return (
     <View style={styles.card}>
       <PhotoSlot hint={`${deal.title} photo`} style={styles.cardImage}>
+        {DEAL_IMAGES[deal.id] ? (
+          <Image source={DEAL_IMAGES[deal.id]} style={StyleSheet.absoluteFill} contentFit="cover" />
+        ) : null}
         <View style={styles.profitBadge}>
           <Text style={archivo(12, 800, { color: Colors.onBrand })}>{deal.profit}</Text>
         </View>
@@ -118,24 +130,32 @@ function DealCard({ deal }: { deal: Deal }) {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: 2, paddingHorizontal: 16 },
+  content: { paddingTop: 2, paddingHorizontal: 12 },
+  titleBar: {
+    marginHorizontal: -12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.hairlineCard,
+  },
   title: { paddingTop: 10, paddingBottom: 14 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Colors.chip,
+    backgroundColor: Colors.search,
     borderRadius: 13,
-    paddingVertical: 13,
+    paddingVertical: 11,
     paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: Colors.searchBorder,
+    marginTop: 14,
+    marginHorizontal: 8,
   },
   searchBarFocused: { borderColor: Colors.brandBorder35 },
   searchInput: { flex: 1, minWidth: 0, padding: 0 },
   chipRow: { marginTop: 14 },
   chipRowContent: { gap: 8, paddingBottom: 2 },
-  list: { gap: 14, marginTop: 16 },
+  list: { gap: 10, marginTop: 12 },
   empty: { textAlign: 'center', marginTop: 30 },
 
   card: {
@@ -145,7 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     overflow: 'hidden',
   },
-  cardImage: { height: 158 },
+  cardImage: { height: 114 },
   profitBadge: {
     position: 'absolute',
     top: 11,

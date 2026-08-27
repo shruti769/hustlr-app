@@ -59,9 +59,19 @@ export function bricolageExtraBold(size: number, opts?: Opts): TextStyle {
   return build('BricolageGrotesque_800ExtraBold', size, opts);
 }
 
+/** Bricolage Grotesque Bold, used by pushed-screen display titles. */
+export function bricolageBold(size: number, opts?: Opts): TextStyle {
+  return build('BricolageGrotesque_700Bold', size, opts);
+}
+
 /** Geist Mono Regular, used for compact auth form labels. */
 export function geistMono(size: number, opts?: Opts): TextStyle {
   return build('GeistMono_400Regular', size, opts);
+}
+
+/** Hanken Grotesk Regular, used for readable marketing body copy. */
+export function hankenGrotesk(size: number, opts?: Opts): TextStyle {
+  return build('HankenGrotesk_400Regular', size, opts);
 }
 
 /** Space Grotesk Bold, used for strong marketing display copy. */

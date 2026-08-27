@@ -135,35 +135,39 @@ export function UserIcon({ size = 19, color = '#5c665f', width = 1.7 }: IconProp
   );
 }
 
-/** Exact bottom-nav artwork supplied from the design file. */
+/** Detailed bottom-nav artwork matching the reference icon set. */
 export function NavHomeIcon({ size = 21, color = '#6F786F', width = 1.74167 }: IconProps) {
   return (
-    <Svg width={(size * 19) / 21} height={size} viewBox="0 0 19 21" fill="none">
-      <Path d="M.871 7.288L9.121.871l8.25 6.417v10.083a1.833 1.833 0 01-1.833 1.833H2.704a1.833 1.833 0 01-1.833-1.833V7.288z" stroke={color} strokeWidth={width} {...join} />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 10l9-7 9 7v10a1 1 0 01-1 1H4a1 1 0 01-1-1V10z" stroke={color} strokeWidth={width} {...join} />
+      <Path d="M9 21v-8h6v8" stroke={color} strokeWidth={width} {...join} />
     </Svg>
   );
 }
 
 export function NavDealsIcon({ size = 21, color = '#6F786F', width = 1.74167 }: IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 21 21" fill="none">
-      <Path d="M10.575 1.408A1.833 1.833 0 009.279.871H2.704A1.833 1.833 0 00.871 2.704v6.575c0 .486.193.952.537 1.296l7.979 7.978a2.217 2.217 0 003.135 0l6.032-6.031a2.217 2.217 0 000-3.135l-7.979-7.979z" stroke={color} strokeWidth={width} {...join} />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20.6 13.6l-7 7a2 2 0 01-2.8 0L3.4 13.2A2 2 0 013 11.8V5a2 2 0 012-2h6.8a2 2 0 011.4.6l7.4 7.2a2 2 0 010 2.8z" stroke={color} strokeWidth={width} {...join} />
+      <Circle cx="8" cy="8" r="1.25" fill={color} />
     </Svg>
   );
 }
 
 export function NavFlipTokIcon({ size = 21, color = '#6F786F', width = 1.74167 }: IconProps) {
   return (
-    <Svg width={(size * 15) / 19} height={size} viewBox="0 0 15 19" fill="none">
-      <Path d="M.871.871l12.833 8.25L.871 17.371V.871z" stroke={color} strokeWidth={width} {...join} />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 3l15 9-15 9V3z" stroke={color} strokeWidth={width} {...join} />
     </Svg>
   );
 }
 
 export function NavInventoryIcon({ size = 21, color = '#6F786F', width = 1.74167 }: IconProps) {
   return (
-    <Svg width={(size * 19) / 21} height={size} viewBox="0 0 19 21" fill="none">
-      <Path d="M8.204 18.955a1.833 1.833 0 001.834 0l6.416-3.667a1.833 1.833 0 00.917-1.586V6.369a1.833 1.833 0 00-.917-1.586l-6.416-3.667a1.833 1.833 0 00-1.834 0L1.788 4.783A1.833 1.833 0 00.871 6.369v7.333c0 .655.35 1.26.917 1.586l6.416 3.667z" stroke={color} strokeWidth={width} {...join} />
+    <Svg width={size} height={size} viewBox="0 0 22 22" fill="none">
+      <Path d="M10.0833 19.9192C10.362 20.0801 10.6782 20.1648 11 20.1648C11.3218 20.1648 11.638 20.0801 11.9167 19.9192L18.3333 16.2525C18.6118 16.0917 18.843 15.8606 19.0039 15.5823C19.1648 15.3039 19.2497 14.9882 19.25 14.6667V7.33333C19.2497 7.01183 19.1648 6.69607 19.0039 6.41772C18.843 6.13938 18.6118 5.90824 18.3333 5.74749L11.9167 2.08083C11.638 1.91992 11.3218 1.83521 11 1.83521C10.6782 1.83521 10.362 1.91992 10.0833 2.08083L3.66667 5.74749C3.38824 5.90824 3.15698 6.13938 2.99609 6.41772C2.8352 6.69607 2.75033 7.01183 2.75 7.33333V14.6667C2.75033 14.9882 2.8352 15.3039 2.99609 15.5823C3.15698 15.8606 3.38824 16.0917 3.66667 16.2525L10.0833 19.9192Z" stroke={color} strokeWidth={width} {...join} />
+      <Path d="M3.02539 6.41675L11.0004 11.0001L18.9754 6.41675" stroke={color} strokeWidth={width} {...join} />
+      <Path d="M11 20.1667V11" stroke={color} strokeWidth={width} {...join} />
     </Svg>
   );
 }
@@ -177,10 +181,41 @@ export function NavProfileIcon({ size = 22, color = '#6F786F', width = 1.74167 }
   );
 }
 
-export function BoltIcon({ size = 17, color = '#5CC96B', width = 1.9 }: IconProps) {
+export function BoltIcon({ size = 17, color = '#5CC96B', width = 1.9, fill = 'none' }: IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} {...join}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={width} {...join}>
       <Path d="M13 2L4 14h7l-1 8 9-12h-7z" />
+    </Svg>
+  );
+}
+
+/** Multicolor emoji-style icons that render consistently without an emoji font. */
+export function FireEmojiIcon({ size = 18 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12.5 2.2c.8 3.8-2.4 5.1-1.4 8.1.5-1.2 1.5-2.1 2.8-2.7 3.4 2.7 5 5.5 4.1 9.1C17.2 19.9 14.9 22 12 22c-4.1 0-7-3-7-7.2 0-3.1 1.8-5.7 4.6-8.3.1 2 .6 3.2 1.3 3.9-.3-3.6.5-5.9 1.6-8.2z" fill="#FF5A1F" />
+      <Path d="M12.2 11c.4 2-1.2 2.8-.7 4.3.4-.7 1-1.3 1.8-1.7 1.3 1.2 2 2.5 1.7 4.1-.3 1.8-1.6 3-3.2 3-2.2 0-3.7-1.6-3.7-3.8 0-1.6.9-3 2.4-4.4.1 1.2.4 2 .9 2.4-.1-1.8.2-2.9.8-3.9z" fill="#FFD43B" />
+    </Svg>
+  );
+}
+
+export function PackageEmojiIcon({ size = 18 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 7.2L12 3l9 4.2-9 4.3L3 7.2z" fill="#D6A36C" />
+      <Path d="M3 7.2l9 4.3V21l-9-4.4V7.2z" fill="#B8793E" />
+      <Path d="M21 7.2l-9 4.3V21l9-4.4V7.2z" fill="#8F592F" />
+      <Path d="M8 5l9 4.3v3.2l-2 .9v-3.1L6 6l2-1z" fill="#F1D0A5" />
+      <Path d="M5.2 12.1l3.7 1.8v2.7l-3.7-1.8v-2.7z" fill="#F4E5D1" />
+    </Svg>
+  );
+}
+
+export function WarningEmojiIcon({ size = 15 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3L22 20H2L12 3z" fill="#FFD43B" />
+      <Path d="M12 9v5M12 17.2v.1" stroke="#302600" strokeWidth="2" {...join} />
     </Svg>
   );
 }
@@ -200,9 +235,9 @@ export function GiftIcon({ size = 17, color = '#E9C46A', width = 1.8 }: IconProp
 export function LogoutIcon({ size = 17, color = '#FF5C5C', width = 1.9 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} {...join}>
-      <Path d="M14 4h5v16h-5" />
-      <Path d="M10 12H3" />
-      <Path d="M6.5 8.5L3 12l3.5 3.5" />
+      <Path d="M10 4H5v16h5" />
+      <Path d="M14 12h7" />
+      <Path d="M17.5 8.5L21 12l-3.5 3.5" />
     </Svg>
   );
 }

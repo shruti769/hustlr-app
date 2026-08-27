@@ -11,7 +11,7 @@ import { Screen } from '@/components/ui/screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { Touch } from '@/components/ui/touch';
 import { Colors, FILL } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { archivo, bricolageBold, mono } from '@/constants/type';
 import { PLATFORMS } from '@/data/mock';
 import { useBack } from '@/hooks/use-back';
 import { num, useApp } from '@/store/app-store';
@@ -45,7 +45,11 @@ export default function AddListingScreen() {
         title="Add Listing"
         onBack={back}
         titleFlex
-        right={<PillButton label="AI Fill" size={12} padV={9} padH={14} radius={9} onPress={aiFill} />}
+        titleStyle={bricolageBold(22, { lh: 1, ls: -0.4 / 22, color: Colors.text })}
+        style={styles.topBar}
+        right={
+          <PillButton label="AI Fill" tone="green" size={12} padV={9} padH={14} radius={9} onPress={aiFill} />
+        }
       />
 
       <View style={styles.body}>
@@ -138,8 +142,9 @@ export default function AddListingScreen() {
                 key={label}
                 label={on ? `✓ ${label}` : label}
                 active={on}
-                padV={10}
-                padH={15}
+                padV={9}
+                padH={9}
+                size={10.5}
                 onPress={() => togglePlatform(label)}
               />
             );
@@ -217,7 +222,8 @@ function Select({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   content: { paddingTop: 0 },
-  body: { paddingHorizontal: 16 },
+  topBar: { paddingHorizontal: 20 },
+  body: { paddingHorizontal: 20 },
 
   photoGrid: { flexDirection: 'row', gap: 9, marginTop: 10 },
   addPhoto: {
@@ -285,7 +291,7 @@ const styles = StyleSheet.create({
   },
 
   listOn: { marginTop: 18 },
-  platforms: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  platforms: { flexDirection: 'row', gap: 7, marginTop: 10 },
 
   notes: { marginTop: 18 },
   preview: { marginTop: 18 },

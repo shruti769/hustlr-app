@@ -13,8 +13,12 @@ import {
   JetBrainsMono_700Bold,
   JetBrainsMono_800ExtraBold,
 } from '@expo-google-fonts/jetbrains-mono';
-import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque';
+import {
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
+} from '@expo-google-fonts/bricolage-grotesque';
 import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono';
+import { HankenGrotesk_400Regular } from '@expo-google-fonts/hanken-grotesk';
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { useFonts } from 'expo-font';
 import { Stack, ThemeProvider, type Theme } from 'expo-router';
@@ -53,8 +57,10 @@ const HustlrTheme: Theme = {
 
 export default function RootLayout() {
   const [loaded] = useFonts({
+    BricolageGrotesque_700Bold,
     BricolageGrotesque_800ExtraBold,
     GeistMono_400Regular,
+    HankenGrotesk_400Regular,
     SpaceGrotesk_700Bold,
     Archivo_400Regular,
     Archivo_500Medium,
