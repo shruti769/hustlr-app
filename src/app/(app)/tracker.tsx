@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
-import { Meter } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
-import { BackLink } from '@/components/ui/top-bar';
+import { TopBar } from '@/components/ui/top-bar';
 import { Touch } from '@/components/ui/touch';
 import { Colors } from '@/constants/theme';
 import { archivo, mono } from '@/constants/type';
@@ -23,16 +23,19 @@ export default function TrackerScreen() {
 
   return (
     <Screen contentStyle={styles.content}>
-      <View style={styles.head}>
-        <BackLink onPress={back} />
-        <Touch style={styles.trackButton} onPress={onTrack} accessibilityRole="button">
-          <Text style={archivo(11.5, 700, { color: Colors.green })}>+ Track</Text>
-        </Touch>
-      </View>
-
-      <Text style={[archivo(24, 800, { ls: -0.02, color: Colors.text }), styles.title]}>Price Tracker</Text>
+      <TopBar
+        title="Price Tracker"
+        onBack={back}
+        titleFlex
+        style={styles.topBar}
+        right={
+          <Touch style={styles.trackButton} onPress={onTrack} accessibilityRole="button">
+            <Text style={archivo(11.5, 700, { color: Colors.onGreen })}>+ Track</Text>
+          </Touch>
+        }
+      />
       <Text style={[mono(9, 500, { ls: 0.18, color: Colors.muted }), styles.subtitle]}>
-        {trackers.length} ITEMS WATCHED · ALERTS ON
+        5 ITEMS WATCHED · ALERTS ON
       </Text>
 
       <View style={styles.list}>
@@ -44,6 +47,7 @@ export default function TrackerScreen() {
                 <Text style={archivo(14, 700, { color: Colors.text })}>{t.title}</Text>
                 <Text style={mono(12.5, 800, { color })}>{t.change}</Text>
               </View>
+              <Sparkline up={t.up} />
               <View style={styles.prices}>
                 <View>
                   <Text style={mono(8, 500, { ls: 0.16, color: Colors.muted })}>NOW</Text>
@@ -56,7 +60,6 @@ export default function TrackerScreen() {
                   </Text>
                 </View>
               </View>
-              <Meter fill={t.bar} color={color} height={5} style={styles.meter} />
             </View>
           );
         })}
@@ -65,18 +68,30 @@ export default function TrackerScreen() {
   );
 }
 
+function Sparkline({ up }: { up: boolean }) {
+  const color = up ? Colors.green : Colors.red;
+  const line = up ? 'M1 42 L15 34 L29 37 L43 25 L57 18 L71 21 L85 10 L99 3' : 'M1 4 L15 13 L29 22 L43 25 L57 35 L71 39 L85 43 L99 48';
+  const area = `${line} L99 52 L1 52 Z`;
+  return (
+    <View style={styles.sparkline}>
+      <Svg width="100%" height="100%" viewBox="0 0 100 52" preserveAspectRatio="none">
+        <Path d={area} fill={color} opacity={0.14} />
+        <Path d={line} fill="none" stroke={color} strokeWidth="2.2" />
+      </Svg>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  content: { paddingTop: 6, paddingHorizontal: 20 },
-  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  content: { paddingTop: 0, paddingHorizontal: 20 },
+  topBar: { marginHorizontal: -20, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: Colors.hairline },
   trackButton: {
-    borderWidth: 1,
-    borderColor: Colors.greenBorder35,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    backgroundColor: Colors.green,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
     borderRadius: 10,
   },
-  title: { marginTop: 12 },
-  subtitle: { marginTop: 8 },
+  subtitle: { marginTop: 16 },
 
   list: { gap: 10, marginTop: 16 },
   card: {
@@ -87,7 +102,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  prices: { flexDirection: 'row', gap: 22, marginTop: 11 },
+  sparkline: { position: 'absolute', left: 14, bottom: 14, width: 80, height: 36 },
+  prices: { flexDirection: 'row', justifyContent: 'flex-end', gap: 22, marginTop: 11 },
   priceValue: { marginTop: 3 },
-  meter: { marginTop: 12 },
 });

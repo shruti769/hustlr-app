@@ -9,7 +9,7 @@ import { Chip } from '@/components/ui/chip';
 import { PhotoSlot } from '@/components/ui/photo-slot';
 import { Screen } from '@/components/ui/screen';
 import { Colors } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { archivo, mono, screenHeading } from '@/constants/type';
 import { CATEGORIES, DEALS, type Deal } from '@/data/mock';
 import { riskColor, scoreColor, useApp, useTab } from '@/store/app-store';
 
@@ -37,7 +37,7 @@ export default function DealsScreen() {
   return (
     <Screen contentStyle={styles.content}>
       <View style={styles.titleBar}>
-        <Text style={[archivo(22, 800, { ls: -0.02, color: Colors.text }), styles.title]}>Hot Deals</Text>
+        <Text style={[screenHeading(Colors.text), styles.title]}>Hot Deals</Text>
       </View>
 
       <View style={[styles.searchBar, focused && styles.searchBarFocused]}>

@@ -6,7 +6,7 @@ import { Field } from '@/components/ui/field';
 import { Screen } from '@/components/ui/screen';
 import { Touch } from '@/components/ui/touch';
 import { Colors } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { archivo, mono, screenHeading } from '@/constants/type';
 import { useApp } from '@/store/app-store';
 
 export default function QuickAnalyserScreen() {
@@ -28,7 +28,7 @@ export default function QuickAnalyserScreen() {
         </View>
       </View>
 
-      <Text style={[archivo(23, 800, { ls: -0.02, color: Colors.text }), styles.title]}>
+      <Text style={[screenHeading(Colors.text), styles.title]}>
         Quick Listing Analyser
       </Text>
       <Text style={[archivo(13, 400, { color: Colors.sub }), styles.subtitle]}>

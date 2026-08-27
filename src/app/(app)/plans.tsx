@@ -5,7 +5,7 @@ import { Screen } from '@/components/ui/screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { Touch } from '@/components/ui/touch';
 import { Colors } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { archivo, mono, screenHeading } from '@/constants/type';
 import { PLANS } from '@/data/mock';
 import { useBack } from '@/hooks/use-back';
 import { useApp } from '@/store/app-store';
@@ -19,7 +19,7 @@ export default function PlansScreen() {
       <TopBar title="Plans" onBack={back} />
 
       <View style={styles.body}>
-        <Text style={[archivo(22, 800, { ls: -0.025, color: Colors.text }), styles.heading]}>
+        <Text style={[screenHeading(Colors.text), styles.heading]}>
           Choose your weapon
         </Text>
         <Text style={[archivo(12.5, 400, { color: Colors.sub }), styles.subheading]}>

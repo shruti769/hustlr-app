@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle 
 import { ArrowLeftIcon } from '@/components/icons';
 import { Touch } from '@/components/ui/touch';
 import { Colors } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { mono, screenHeading } from '@/constants/type';
 
 /** Boxed chevron + title header used by every pushed sub-screen. */
 export function TopBar({
@@ -27,7 +27,7 @@ export function TopBar({
       <Touch style={styles.backBox} onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
         <ArrowLeftIcon size={18} color={Colors.subLight} width={1.8} />
       </Touch>
-      <Text style={[archivo(19, 800, { ls: -0.02, color: Colors.text }), titleFlex && styles.grow, titleStyle]}>
+      <Text style={[screenHeading(Colors.text), titleFlex && styles.grow, titleStyle]}>
         {title}
       </Text>
       {right}

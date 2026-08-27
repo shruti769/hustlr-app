@@ -262,3 +262,70 @@ export function GridIcon({ size = 17, color = '#8A938D', width = 1.8 }: IconProp
     </Svg>
   );
 }
+
+export function ChevronRightIcon({ size = 18, color = '#E8ECE9', width = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} {...join}>
+      <Path d="M9 5l7 7-7 7" />
+    </Svg>
+  );
+}
+
+export function CalculatorIcon({ size = 19, color = '#E8ECE9', width = 1.8 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} {...join}>
+      <Path d="M5 2h14a1 1 0 011 1v18a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" />
+      <Path d="M7 5h10v4H7zM8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17v2" />
+    </Svg>
+  );
+}
+
+export function MarketTrendsIcon({ size = 19, color = '#E8ECE9', width = 1.8 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} {...join}>
+      <Path d="M4 21h16M6 21v-8h4v8M10 21V4h4v17M14 21v-12h4v12" />
+    </Svg>
+  );
+}
+
+export function AnalyseIcon({ size = 19, color = '#E8ECE9', width = 1.9 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} {...join}>
+      <Circle cx="5" cy="5" r="1.5" fill={color} stroke="none" />
+      <Circle cx="5" cy="12" r="1.5" fill={color} stroke="none" />
+      <Circle cx="5" cy="19" r="1.5" fill={color} stroke="none" />
+      <Path d="M9 5h11M9 12h11M9 19h11" />
+    </Svg>
+  );
+}
+
+/** Solid tool-menu artwork used by the Profile shortcuts. */
+export function ToolDashboardIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M3 3.5A1.5 1.5 0 014.5 2h6A1.5 1.5 0 0112 3.5v6a1.5 1.5 0 01-1.5 1.5h-6A1.5 1.5 0 013 9.5v-6zM14 3.5A1.5 1.5 0 0115.5 2h4A1.5 1.5 0 0121 3.5v8a1.5 1.5 0 01-1.5 1.5h-4a1.5 1.5 0 01-1.5-1.5v-8zM3 14.5A1.5 1.5 0 014.5 13h6a1.5 1.5 0 011.5 1.5v6a1.5 1.5 0 01-1.5 1.5h-6A1.5 1.5 0 013 20.5v-6zM14 16.5a1.5 1.5 0 011.5-1.5h4a1.5 1.5 0 011.5 1.5v4a1.5 1.5 0 01-1.5 1.5h-4a1.5 1.5 0 01-1.5-1.5v-4z" />
+    </Svg>
+  );
+}
+
+export function ToolCalculatorIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path
+        fillRule="evenodd"
+        d="M5 2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2zm1 3v4h12V5H6zm0 7h3v3H6v-3zm5 0h3v3h-3v-3zm5 0h2v3h-2v-3zM6 17h3v3H6v-3zm5 0h3v3h-3v-3zm5 0h2v3h-2v-3z"
+      />
+    </Svg>
+  );
+}
+
+export function ToolTagIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path
+        fillRule="evenodd"
+        d="M3 4a1 1 0 011-1h7.1a2 2 0 011.42.59l8.9 8.9a2 2 0 010 2.82l-6.11 6.11a2 2 0 01-2.82 0l-8.9-8.9A2 2 0 013 11.1V4zm5 2a2 2 0 100 4 2 2 0 000-4z"
+      />
+    </Svg>
+  );
+}

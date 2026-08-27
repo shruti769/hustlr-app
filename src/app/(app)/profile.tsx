@@ -1,13 +1,25 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { BellIcon, BoltIcon, BookmarkIcon, GiftIcon, LogoutIcon } from '@/components/icons';
+import {
+  AnalyseIcon,
+  BellIcon,
+  BoltIcon,
+  BookmarkIcon,
+  ChevronRightIcon,
+  GiftIcon,
+  LogoutIcon,
+  MarketTrendsIcon,
+  ToolCalculatorIcon,
+  ToolDashboardIcon,
+  ToolTagIcon,
+} from '@/components/icons';
 import { Card } from '@/components/ui/card';
 import { GlowCard } from '@/components/ui/glow-card';
 import { Screen } from '@/components/ui/screen';
 import { Touch } from '@/components/ui/touch';
 import { Colors } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { archivo, mono, screenHeading } from '@/constants/type';
 import { PROFILE_ROWS } from '@/data/mock';
 import { useApp, useTab } from '@/store/app-store';
 
@@ -18,7 +30,7 @@ export default function ProfileScreen() {
   return (
     <Screen contentStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={archivo(22, 800, { ls: -0.02, color: Colors.text })}>My Profile</Text>
+        <Text style={screenHeading(Colors.text)}>My Profile</Text>
         <View style={styles.headerActions}>
           <Touch
             style={styles.iconButton}
@@ -88,6 +100,14 @@ export default function ProfileScreen() {
         ))}
       </Card>
 
+      <Card radius={15} style={styles.toolsCard}>
+        <ToolRow icon={<ToolDashboardIcon {...toolIconProps} />} label="Dashboard" path="/dashboard" />
+        <ToolRow icon={<ToolCalculatorIcon {...toolIconProps} />} label="Calculator" path="/calculator" />
+        <ToolRow icon={<ToolTagIcon {...toolIconProps} />} label="Price Tracker" path="/tracker" />
+        <ToolRow icon={<MarketTrendsIcon {...toolIconProps} />} label="Market Trends" path="/trends" />
+        <ToolRow icon={<AnalyseIcon {...toolIconProps} />} label="Analyse Listing" path="/analyser" last />
+      </Card>
+
       <Card radius={15} style={styles.actionCard}>
         <ActionRow
           icon={<BoltIcon />}
@@ -108,6 +128,32 @@ export default function ProfileScreen() {
         />
       </Card>
     </Screen>
+  );
+}
+
+const toolIconProps = { size: 20, color: Colors.textStrong } as const;
+
+function ToolRow({
+  icon,
+  label,
+  path,
+  last = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  path: string;
+  last?: boolean;
+}) {
+  return (
+    <Touch
+      style={[styles.toolRow, !last && styles.actionRowDivider]}
+      onPress={() => router.push(path as never)}
+      accessibilityRole="button"
+      accessibilityLabel={label}>
+      <View style={styles.toolIcon}>{icon}</View>
+      <Text style={[archivo(13.5, 600, { color: Colors.text }), styles.toolLabel]}>{label}</Text>
+      <ChevronRightIcon size={18} color={Colors.textStrong} width={2.4} />
+    </Touch>
   );
 }
 
@@ -202,6 +248,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.hairlineSoft,
   },
+
+  toolsCard: { marginTop: 14, overflow: 'hidden' },
+  toolRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  toolIcon: { width: 28, alignItems: 'flex-start', justifyContent: 'center' },
+  toolLabel: { flex: 1, marginLeft: 8 },
 
   actionCard: { marginTop: 14, overflow: 'hidden' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },

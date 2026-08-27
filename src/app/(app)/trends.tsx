@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
-import { Meter } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
-import { BackLink } from '@/components/ui/top-bar';
+import { TopBar } from '@/components/ui/top-bar';
 import { Colors } from '@/constants/theme';
 import { archivo, mono } from '@/constants/type';
 import { TRENDS } from '@/data/mock';
@@ -13,8 +13,7 @@ export default function TrendsScreen() {
 
   return (
     <Screen contentStyle={styles.content}>
-      <BackLink onPress={back} />
-      <Text style={[archivo(24, 800, { ls: -0.02, color: Colors.text }), styles.title]}>Market Trends</Text>
+      <TopBar title="Market Trends" onBack={back} style={styles.topBar} />
       <Text style={[mono(9, 500, { ls: 0.18, color: Colors.muted }), styles.subtitle]}>
         WHAT IS MOVING · LAST 90 DAYS
       </Text>
@@ -31,7 +30,7 @@ export default function TrendsScreen() {
               <Text style={[mono(10, 500, { color: Colors.muted }), styles.watching]}>
                 {t.watching} watching
               </Text>
-              <Meter fill={t.bar} color={color} height={6} style={styles.meter} />
+              <TrendLine up={t.up} />
             </View>
           );
         })}
@@ -40,10 +39,23 @@ export default function TrendsScreen() {
   );
 }
 
+function TrendLine({ up }: { up: boolean }) {
+  const color = up ? Colors.green : Colors.red;
+  const line = up ? 'M0 39 L9 37 L18 38 L27 33 L36 34 L45 29 L54 24 L63 25 L72 19 L81 15 L90 10 L100 2' : 'M0 3 L9 10 L18 7 L27 16 L36 22 L45 25 L54 32 L63 29 L72 38 L81 42 L90 45 L100 51';
+  return (
+    <View style={styles.trendLine}>
+      <Svg width="100%" height="100%" viewBox="0 0 100 54" preserveAspectRatio="none">
+        <Path d={`${line} L100 54 L0 54 Z`} fill={color} opacity={0.14} />
+        <Path d={line} fill="none" stroke={color} strokeWidth="2.2" />
+      </Svg>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  content: { paddingTop: 6, paddingHorizontal: 20 },
-  title: { marginTop: 12 },
-  subtitle: { marginTop: 8 },
+  content: { paddingTop: 0, paddingHorizontal: 20 },
+  topBar: { marginHorizontal: -20, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: Colors.hairline },
+  subtitle: { marginTop: 16 },
   list: { gap: 10, marginTop: 16 },
   card: {
     backgroundColor: Colors.surfaceAlt,
@@ -54,5 +66,5 @@ const styles = StyleSheet.create({
   },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   watching: { marginTop: 5 },
-  meter: { marginTop: 11 },
+  trendLine: { height: 54, marginTop: 9 },
 });

@@ -6,7 +6,7 @@ import { PillButton } from '@/components/ui/button';
 import { PhotoSlot } from '@/components/ui/photo-slot';
 import { Screen } from '@/components/ui/screen';
 import { Colors } from '@/constants/theme';
-import { archivo, mono } from '@/constants/type';
+import { archivo, mono, screenHeading } from '@/constants/type';
 import { INVENTORY, type InventoryStatus } from '@/data/mock';
 import { useTab } from '@/store/app-store';
 
@@ -31,7 +31,7 @@ export default function InventoryScreen() {
   return (
     <Screen contentStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={archivo(24, 800, { ls: -0.02, color: Colors.text })}>Inventory</Text>
+        <Text style={screenHeading(Colors.text)}>Inventory</Text>
         <PillButton
           label="+ Add"
           tone="green"

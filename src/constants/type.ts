@@ -64,6 +64,15 @@ export function bricolageBold(size: number, opts?: Opts): TextStyle {
   return build('BricolageGrotesque_700Bold', size, opts);
 }
 
+/** Shared screen-heading spec from the product typography system. */
+export function screenHeading(color?: string): TextStyle {
+  return build('BricolageGrotesque_700Bold', 22, {
+    lh: 1,
+    ls: -0.4 / 22,
+    color,
+  });
+}
+
 /** Geist Mono Regular, used for compact auth form labels. */
 export function geistMono(size: number, opts?: Opts): TextStyle {
   return build('GeistMono_400Regular', size, opts);

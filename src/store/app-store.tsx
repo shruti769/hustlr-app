@@ -97,7 +97,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [analyse, setAnalyseState] = useState<Analyse>({
     url: '',
     notes: '',
-    done: false,
+    done: true,
     loading: false,
   });
   const [quick, setQuickState] = useState<Quick>({ title: '', price: '', notes: '' });
