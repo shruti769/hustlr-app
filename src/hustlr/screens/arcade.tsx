@@ -6,10 +6,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
 
-import { ART, LADDER, PUZZLE, STORE_GROUPS, UPGRADE_DEFS, WHEEL, WHEEL_ODDS } from '../data';
-import { guessReward, useHustlr } from '../store';
+import { ART, LADDER, UPGRADE_DEFS, WHEEL, WHEEL_ODDS } from '../data';
+import { until, type StoreItem } from '../model';
+import { useHustlr } from '../store';
 import { A, C, G, L, bgImage, bric, card, hk, kicker, mono } from '../theme';
-import { Grid2, Press, ScalePress, Slider } from '../ui';
+import { EmptyNote, Grid2, Press, ScalePress, Slider } from '../ui';
 
 const pad = { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 110 } as const;
 
@@ -51,7 +52,7 @@ function GameTile({ title, sub, art, tint, border, chip, icon, onPress }: {
 export function Arcade() {
   const { st, go, set, checkIn, openFeatured, pawnRate } = useHustlr();
   const [featureW, setFeatureW] = useState(0);
-  const streak = st.streak + (st.checkedIn ? 1 : 0);
+  const streak = st.streak;
   const powerups = Math.floor(st.credits / 250);
   const spendHint = powerups === 0 ? '250 CR unlocks your first powerup' : powerups === 1 ? 'Enough for 1 powerup' : `Enough for ${powerups} powerups`;
   const cta = st.spinsLeft > 0 ? 'Spin Now' : st.checkedIn ? 'Back tomorrow' : 'Check in for a spin';
@@ -59,7 +60,7 @@ export function Arcade() {
     { label: 'Analyse 3 listings', value: '+15 CR', done: true },
     { label: 'Spin the wheel once', value: '+5 CR', done: true },
     { label: 'Daily check-in', value: '+10 CR', done: st.checkedIn },
-    { label: 'Lock in a Price It Right guess', value: '+20 CR', done: st.guessed },
+    { label: 'Lock in a Price It Right guess', value: '+20 CR', done: st.puzzle?.guess != null },
   ];
 
   return (
@@ -242,30 +243,35 @@ function MiniStat({ label, value, icon }: { label: string; value: string; icon: 
 
 export function PriceIt() {
   const { st, set, submitGuess } = useHustlr();
-  const diff = Math.abs(st.guess - PUZZLE.actual);
-  const reward = guessReward(st.guess);
+  const pz = st.puzzle;
+  if (!pz) {
+    return <View style={pad}><EmptyNote text="No item this week — check back Monday." /></View>;
+  }
+  const guessed = pz.guess != null;
+  const guess = pz.guess ?? st.guess;
+  const reward = pz.reward ?? 0;
   const win = reward > 0;
   return (
     <View style={[pad, { gap: 14 }]}>
       <View style={s.between}>
-        <Text style={kicker}>THIS WEEK · CLOSES IN 3D 04H</Text>
+        <Text style={kicker}>THIS WEEK · CLOSES IN {until(pz.closesAt)}</Text>
         <Text style={mono(10, { c: C.aink })}>{st.credits} CR</Text>
       </View>
       <View style={[card(14), { overflow: 'hidden' }]}>
-        <Image source={ART.puzzle} contentFit="cover" style={{ height: 230 }} />
+        <Image source={pz.img ?? ART.puzzle} contentFit="cover" style={{ height: 230 }} />
         <View style={{ padding: 16 }}>
-          <Text style={hk(18, { w: 700, ls: -0.3, c: C.t1 })}>{PUZZLE.name}</Text>
-          <Text style={[mono(10, { c: C.t4 }), { paddingTop: 8 }]}>{PUZZLE.meta}</Text>
+          <Text style={hk(18, { w: 700, ls: -0.3, c: C.t1 })}>{pz.name}</Text>
+          <Text style={[mono(10, { c: C.t4 }), { paddingTop: 8 }]}>{pz.meta}</Text>
         </View>
       </View>
       <View style={[card(14), { padding: 16 }]}>
         <Text style={kicker}>YOUR VALUATION</Text>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingTop: 14, paddingBottom: 4 }}>
-          <Text style={bric(42, { lh: 1, c: C.t1 })}>${st.guess}</Text>
+          <Text style={bric(42, { lh: 1, c: C.t1 })}>${guess}</Text>
         </View>
         <Slider
-          min={20} max={600} step={5} value={st.guess}
-          onChange={(v) => { if (!st.guessed) set({ guess: v }); }}
+          min={20} max={600} step={5} value={guess}
+          onChange={(v) => { if (!guessed) set({ guess: v }); }}
           style={{ marginTop: 14 }}
         />
         <View style={[s.between, { paddingTop: 6 }]}>
@@ -273,14 +279,14 @@ export function PriceIt() {
           <Text style={mono(10, { c: C.t5 })}>$600</Text>
         </View>
         <Press onPress={submitGuess} style={s.cta50}>
-          <Text style={hk(15, { w: 700, c: C.ona })}>{st.guessed ? 'Locked in for this week' : 'Lock in valuation'}</Text>
+          <Text style={hk(15, { w: 700, c: C.ona })}>{guessed ? 'Locked in for this week' : 'Lock in valuation'}</Text>
         </Press>
       </View>
-      {st.guessed && (
+      {guessed && (
         <View style={[card(14, win ? A(35) : L(8)), { padding: 18 }]}>
           <Text style={mono(10, { ls: 1, c: win ? C.a : C.t4 })}>{win ? `+${reward} CREDITS` : 'NO PAYOUT THIS WEEK'}</Text>
-          <Text style={[bric(26, { lh: 1, c: C.t1 }), { paddingTop: 12, paddingBottom: 8 }]}>Actual: ${PUZZLE.actual}</Text>
-          <Text style={hk(13.5, { lh: 20, c: C.t3 })}>You were ${diff} off. New item drops Monday — streaks multiply your payout.</Text>
+          <Text style={[bric(26, { lh: 1, c: C.t1 }), { paddingTop: 12, paddingBottom: 8 }]}>Actual: ${pz.actual}</Text>
+          <Text style={hk(13.5, { lh: 20, c: C.t3 })}>You were ${Math.abs(guess - (pz.actual ?? 0))} off. New item drops Monday — streaks multiply your payout.</Text>
         </View>
       )}
       <View style={[card(14), { padding: 16 }]}>
@@ -477,6 +483,16 @@ export function Spin() {
   );
 }
 
+function groupStore(items: StoreItem[]) {
+  const groups: { label: string; items: StoreItem[] }[] = [];
+  for (const i of items) {
+    const g = groups.find((x) => x.label === i.group);
+    if (g) g.items.push(i);
+    else groups.push({ label: i.group, items: [i] });
+  }
+  return groups;
+}
+
 export function Store() {
   const { st, buyItem } = useHustlr();
   return (
@@ -485,7 +501,7 @@ export function Store() {
         <Text style={kicker}>BALANCE</Text>
         <Text style={mono(15, { w: 600, c: C.aink })}>{st.credits} CR</Text>
       </View>
-      {STORE_GROUPS.map((g) => (
+      {groupStore(st.storeItems).map((g) => (
         <View key={g.label}>
           <Text style={kicker}>{g.label}</Text>
           <View style={{ gap: 10, paddingTop: 11 }}>

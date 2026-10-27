@@ -2,21 +2,56 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import {
-  BOARD, CALC_FIELDS, ENTRY_TASKS, KPIS, NOTIFICATIONS, PLANS, PROFILE_META, PROFILE_STATS,
-  RECENT, SHOW_PRIZE_DRAW, TOOLS, TRACKED, TRENDS, WATCH, WINNERS,
+  CALC_FIELDS, ENTRY_TASKS, KPIS, PLANS, PROFILE_META, PROFILE_STATS, SHOW_PRIZE_DRAW, TOOLS, WINNERS,
 } from '../data';
-import { useHustlr } from '../store';
+import { PLAN_LABEL, ago, compact, initialsOf, money, monthYear, pct, roi, signed, type Deal } from '../model';
+import { LIVE, useHustlr } from '../store';
 import { A, C, G, L, bgImage, bric, card, hk, kicker, label9, mono } from '../theme';
-import { Grid2, Photo, Press, Slider } from '../ui';
+import { EmptyNote, Grid2, Photo, Press, Slider } from '../ui';
 import { AreaChart, Avatar, Check } from './main';
 
 const pad = { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 110 } as const;
 
+const DEMO_CHART = 'M0 70 L40 64 L80 52 L120 58 L160 40 L200 44 L240 26 L280 30 L320 14 L360 8';
+const DAY = 86400000;
+
+/** Cumulative sold profit over the last 30 days, as a 360×80 line. */
+function profitPath(sold: { soldAt: string | null; buy: number; list: number }[]) {
+  const now = Date.now();
+  const buckets = Array.from({ length: 10 }, () => 0);
+  for (const i of sold) {
+    if (!i.soldAt) continue;
+    const age = (now - new Date(i.soldAt).getTime()) / DAY;
+    if (age < 0 || age >= 30) continue;
+    buckets[9 - Math.floor(age / 3)] += i.list - i.buy;
+  }
+  let run = 0;
+  const pts = buckets.map((b) => (run += b));
+  const max = Math.max(1, ...pts);
+  return pts.map((v, i) => `${i === 0 ? 'M' : 'L'}${i * 40} ${(70 - (Math.max(0, v) / max) * 62).toFixed(1)}`).join(' ');
+}
+
 export function Dashboard() {
+  const { st, me, openDeal } = useHustlr();
+  const since = Date.now() - 30 * DAY;
+  const sold30 = me.sold.filter((i) => i.soldAt && new Date(i.soldAt).getTime() >= since);
+  const unsold = st.inventory.filter((i) => i.status !== 'Sold');
+  const kpis = LIVE
+    ? [
+        { label: 'PROFIT', value: compact(me.lifetime), delta: `${me.sold.length} SOLD`, fg: C.aink },
+        { label: 'DEPLOYED', value: compact(unsold.reduce((n, i) => n + i.buy, 0)), delta: `${unsold.length} ITEMS`, fg: C.aink },
+        {
+          label: 'LISTINGS', value: String(st.inventory.filter((i) => i.status === 'Listed').length),
+          delta: `▲ ${st.inventory.filter((i) => new Date(i.createdAt).getTime() >= since).length}`, fg: C.aink,
+        },
+        { label: 'AVG ROI', value: me.avgRoi == null ? '—' : `${me.avgRoi}%`, delta: 'SOLD ITEMS', fg: C.t4 },
+      ]
+    : KPIS;
+  const profit30 = LIVE ? money(sold30.reduce((n, i) => n + i.list - i.buy, 0)) : '$12,480';
   return (
     <View style={[pad, { gap: 12 }]}>
       <Grid2 gap={10}>
-        {KPIS.map((k) => (
+        {kpis.map((k) => (
           <View key={k.label} style={[card(), { padding: 15, flex: 1 }]}>
             <Text style={label9}>{k.label}</Text>
             <Text style={[bric(22, { lh: 1, c: C.t1 }), { paddingTop: 10, paddingBottom: 7 }]}>{k.value}</Text>
@@ -26,23 +61,23 @@ export function Dashboard() {
       </Grid2>
       <View style={[card(), { padding: 16 }]}>
         <Text style={kicker}>PROFIT · 30D</Text>
-        <Text style={[bric(28, { lh: 1, c: C.aink }), { paddingTop: 10, paddingBottom: 12 }]}>$12,480</Text>
-        <AreaChart d="M0 70 L40 64 L80 52 L120 58 L160 40 L200 44 L240 26 L280 30 L320 14 L360 8" />
+        <Text style={[bric(28, { lh: 1, c: C.aink }), { paddingTop: 10, paddingBottom: 12 }]}>{profit30}</Text>
+        <AreaChart d={LIVE ? profitPath(me.sold) : DEMO_CHART} />
       </View>
       <View style={[card(), { padding: 16 }]}>
         <Text style={kicker}>RECENT DEALS</Text>
-        {RECENT.map((r) => (
-          <View key={r.name} style={[s.lineRow, { gap: 11, paddingVertical: 12 }]}>
+        {st.deals.slice(0, 4).map((r) => (
+          <Press key={r.id} onPress={() => openDeal(r.id)} style={[s.lineRow, { gap: 11, paddingVertical: 12 }]}>
             <Photo src={r.img} style={{ width: 36, height: 36, borderRadius: 8 }} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={1} style={hk(13.5, { w: 600, c: C.t1 })}>{r.name}</Text>
               <Text style={[mono(10, { c: C.t4 }), { paddingTop: 4 }]}>{r.source}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={mono(12, { w: 600, c: C.aink })}>{r.profit}</Text>
-              <Text style={[mono(10.5, { c: C.t4 }), { paddingTop: 4 }]}>{r.roi}</Text>
+              <Text style={mono(12, { w: 600, c: C.aink })}>{signed(r.resale - r.buy)}</Text>
+              <Text style={[mono(10.5, { c: C.t4 }), { paddingTop: 4 }]}>{roi(r.buy, r.resale)}</Text>
             </View>
-          </View>
+          </Press>
         ))}
       </View>
     </View>
@@ -82,27 +117,29 @@ export function Calculator() {
 }
 
 export function Tracker() {
+  const { st } = useHustlr();
   return (
     <View style={[pad, { gap: 11 }]}>
-      <Text style={kicker}>5 ITEMS WATCHED · ALERTS ON</Text>
-      {TRACKED.map((t) => (
+      <Text style={kicker}>{LIVE ? st.tracked.length : 5} ITEMS WATCHED · ALERTS ON</Text>
+      {st.tracked.length === 0 && <EmptyNote text="Nothing tracked yet." />}
+      {st.tracked.map((t) => (
         <View key={t.name} style={[card(), { padding: 15 }]}>
           <View style={s.between}>
             <Text style={hk(14, { w: 600, c: C.t1 })}>{t.name}</Text>
-            <Text style={mono(12, { c: t.fg })}>{t.change}</Text>
+            <Text style={mono(12, { c: t.change >= 0 ? C.aink : C.neg })}>{pct(t.change)}</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 26, paddingTop: 14 }}>
             <View>
               <Text style={label9}>NOW</Text>
-              <Text style={[mono(14, { w: 500, c: C.t1 }), { paddingTop: 7 }]}>{t.now}</Text>
+              <Text style={[mono(14, { w: 500, c: C.t1 }), { paddingTop: 7 }]}>{money(t.now)}</Text>
             </View>
             <View>
               <Text style={label9}>TARGET</Text>
-              <Text style={[mono(14, { w: 500, c: C.aink }), { paddingTop: 7 }]}>{t.target}</Text>
+              <Text style={[mono(14, { w: 500, c: C.aink }), { paddingTop: 7 }]}>{money(t.target)}</Text>
             </View>
             <View style={{ flex: 1, alignSelf: 'flex-end' }}>
               <View style={s.track}>
-                <View style={[s.trackFill, { width: `${t.pct * 100}%` }]} />
+                <View style={[s.trackFill, { width: `${(t.pct ?? Math.min(1, t.now / t.target)) * 100}%` }]} />
               </View>
             </View>
           </View>
@@ -113,19 +150,20 @@ export function Tracker() {
 }
 
 export function Trends() {
+  const { st } = useHustlr();
   return (
     <View style={[pad, { gap: 11 }]}>
       <Text style={kicker}>WHAT IS MOVING · LAST 90 DAYS</Text>
-      {TRENDS.map((t) => (
+      {st.trends.map((t) => (
         <View key={t.name} style={[card(), s.row, { gap: 12, padding: 15 }]}>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={hk(14, { w: 600, c: C.t1 })}>{t.name}</Text>
             <Text style={[mono(10, { c: C.t4 }), { paddingTop: 5 }]}>{t.watching}</Text>
           </View>
           <Svg width={76} height={28} viewBox="0 0 76 28" preserveAspectRatio="none">
-            <Path d={t.path} fill="none" stroke={t.fg} strokeWidth={1.6} />
+            <Path d={t.spark} fill="none" stroke={t.change >= 0 ? C.aink : C.neg} strokeWidth={1.6} />
           </Svg>
-          <Text style={mono(13, { w: 600, c: t.fg })}>{t.change}</Text>
+          <Text style={mono(13, { w: 600, c: t.change >= 0 ? C.aink : C.neg })}>{pct(t.change)}</Text>
         </View>
       ))}
     </View>
@@ -180,21 +218,22 @@ export function Analyse() {
 }
 
 export function Leaderboard() {
+  const { me } = useHustlr();
   return (
     <View style={[pad, { gap: 11 }]}>
-      {BOARD.map((b) => (
+      {me.board.map((b, i) => (
         <View
-          key={b.rank}
+          key={b.handle + i}
           style={[s.row, s.boardRow, b.me ? { backgroundColor: A(8), borderColor: A(35) } : { backgroundColor: C.s1, borderColor: L(8) }]}>
-          <Text style={[mono(13, { w: 600, c: b.rank === '1' ? C.gold : C.t4 }), { width: 22 }]}>{b.rank}</Text>
+          <Text style={[mono(13, { w: 600, c: i === 0 ? C.gold : C.t4 }), { width: 22 }]}>{i + 1}</Text>
           <Avatar initials={b.initials} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={hk(13.5, { w: 600, c: C.t1 })}>{b.name}</Text>
             <Text style={[mono(10, { c: C.t4 }), { paddingTop: 4 }]}>{b.handle}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={mono(13, { w: 600, c: C.t1 })}>{b.profit}</Text>
-            <Text style={[mono(10, { c: C.t4 }), { paddingTop: 4 }]}>{b.streak}</Text>
+            <Text style={mono(13, { w: 600, c: C.t1 })}>{money(b.profit)}</Text>
+            <Text style={[mono(10, { c: C.t4 }), { paddingTop: 4 }]}>{b.streakDays}d streak</Text>
           </View>
         </View>
       ))}
@@ -203,12 +242,14 @@ export function Leaderboard() {
 }
 
 export function Watchlist() {
-  const { openDeal } = useHustlr();
+  const { st, openDeal } = useHustlr();
+  const watch = st.watchIds.map((id) => st.deals.find((d) => d.id === id)).filter((d): d is Deal => !!d);
   return (
     <View style={[pad, { gap: 11 }]}>
-      <Text style={kicker}>SAVED DEALS · WATCHING 4</Text>
-      {WATCH.map((w) => (
-        <Press key={w.name} onPress={() => openDeal(w.i)} style={[card(), s.row, { gap: 12, padding: 12 }]} hover={{ borderColor: A(35) }}>
+      <Text style={kicker}>SAVED DEALS · WATCHING {watch.length}</Text>
+      {watch.length === 0 && <EmptyNote text="Tap Save on any deal to watch it here." />}
+      {watch.map((w) => (
+        <Press key={w.id} onPress={() => openDeal(w.id)} style={[card(), s.row, { gap: 12, padding: 12 }]} hover={{ borderColor: A(35) }}>
           <Photo src={w.img} style={{ width: 54, height: 54, borderRadius: 10 }} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text numberOfLines={1} style={hk(13.5, { w: 600, c: C.t1 })}>{w.name}</Text>
@@ -216,7 +257,7 @@ export function Watchlist() {
           </View>
           <View style={s.scorePill}>
             <View style={s.dot6} />
-            <Text style={mono(12, { c: C.t1 })}>{w.score}</Text>
+            <Text style={mono(12, { c: C.t1 })}>{w.score.toFixed(1)}</Text>
           </View>
           <View style={s.viewBtn}>
             <Text style={hk(13, { w: 700, c: C.ona })}>View</Text>
@@ -302,6 +343,9 @@ function Prizes() {
 }
 
 export function Plans() {
+  const { st } = useHustlr();
+  const ctaOf = (p: (typeof PLANS)[number]) =>
+    !LIVE ? p.cta : p.key === st.profile.plan ? 'Current plan' : p.key === 'scout' ? 'Switch to Scout' : p.cta;
   return (
     <View style={[pad, { gap: 14 }]}>
       <View>
@@ -322,7 +366,7 @@ export function Plans() {
           </View>
           <Text style={hk(13.5, { c: C.t3 })}>{p.tagline}</Text>
           <Press style={[s.planCta, { backgroundColor: p.ctaBg, borderColor: p.ctaBd }]} onPress={() => {}}>
-            <Text style={hk(14, { w: 700, c: p.ctaFg })}>{p.cta}</Text>
+            <Text style={hk(14, { w: 700, c: p.ctaFg })}>{ctaOf(p)}</Text>
           </Press>
           <View style={{ gap: 11, paddingTop: 16 }}>
             {p.features.map((f) => (
@@ -339,21 +383,38 @@ export function Plans() {
 }
 
 export function Profile() {
-  const { go, goLogin } = useHustlr();
+  const { st, me, go, signOut } = useHustlr();
+  const pr = st.profile;
+  const stats = LIVE
+    ? [
+        { label: 'TOTAL FLIPS', value: String(me.sold.length) },
+        { label: 'LIFETIME PROFIT', value: compact(me.lifetime) },
+        { label: 'AVG ROI', value: me.avgRoi == null ? '—' : `${me.avgRoi}%` },
+        { label: 'STREAK', value: `${st.streak}d` },
+      ]
+    : PROFILE_STATS;
+  const meta = LIVE
+    ? [
+        { label: 'Email', value: pr.email },
+        { label: 'Member since', value: monthYear(pr.memberSince) },
+        { label: 'Plan', value: PLAN_LABEL[pr.plan] ?? pr.plan },
+        { label: 'Region', value: pr.region },
+      ]
+    : PROFILE_META;
   return (
     <View style={[pad, { gap: 14 }]}>
       <View style={[card(14), s.row, { gap: 14, padding: 16 }]}>
-        <Avatar initials="MR" size={58} radius={14} font={16} />
+        <Avatar initials={LIVE ? initialsOf(pr.name) : 'MR'} size={58} radius={14} font={16} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={bric(20, { w: 700, lh: 1, c: C.t1 })}>Mason Reid</Text>
-          <Text style={[mono(10, { c: C.t4 }), { paddingTop: 8 }]}>@mrhustle · rank #8</Text>
+          <Text numberOfLines={1} style={bric(20, { w: 700, lh: 1, c: C.t1 })}>{pr.name}</Text>
+          <Text style={[mono(10, { c: C.t4 }), { paddingTop: 8 }]}>{pr.handle} · rank #{LIVE ? me.rank : 8}</Text>
         </View>
         <View style={[s.pill, { paddingHorizontal: 10, backgroundColor: A(14) }]}>
-          <Text style={mono(9, { ls: 0.5, c: C.aink })}>HUSTLER PLAN</Text>
+          <Text style={mono(9, { ls: 0.5, c: C.aink })}>{pr.plan.toUpperCase()} PLAN</Text>
         </View>
       </View>
       <Grid2 gap={10}>
-        {PROFILE_STATS.map((x) => (
+        {stats.map((x) => (
           <View key={x.label} style={[card(), { padding: 15, flex: 1 }]}>
             <Text style={label9}>{x.label}</Text>
             <Text style={[mono(16, { w: 600, c: C.t1 }), { paddingTop: 10 }]}>{x.value}</Text>
@@ -361,7 +422,7 @@ export function Profile() {
         ))}
       </Grid2>
       <View style={[card(), { paddingVertical: 4, paddingHorizontal: 16 }]}>
-        {PROFILE_META.map((m) => (
+        {meta.map((m) => (
           <View key={m.label} style={[s.lineRow, s.between, { paddingVertical: 13 }]}>
             <Text style={hk(13.5, { c: C.t3 })}>{m.label}</Text>
             <Text style={hk(13.5, { w: 600, c: C.t1 })}>{m.value}</Text>
@@ -385,7 +446,7 @@ export function Profile() {
           </Text>
         )}
       </Press>
-      <Press onPress={goLogin} style={[s.wide, { height: 48, borderWidth: 0 }]}>
+      <Press onPress={signOut} style={[s.wide, { height: 48, borderWidth: 0 }]}>
         <Text style={hk(14, { w: 600, c: C.neg })}>Log out</Text>
       </Press>
     </View>
@@ -393,15 +454,17 @@ export function Profile() {
 }
 
 export function Notifications() {
+  const { st } = useHustlr();
   return (
     <View style={[pad, { gap: 11 }]}>
-      {NOTIFICATIONS.map((n) => (
-        <View key={n.title} style={[card(), { flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 14 }]}>
+      {st.notices.length === 0 && <EmptyNote text="You're all caught up." />}
+      {st.notices.map((n) => (
+        <View key={n.id} style={[card(), { flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 14 }]}>
           <Photo src={n.img} style={{ width: 42, height: 42, borderRadius: 10 }} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
               <Text style={[hk(13.5, { w: 600, c: C.t1 }), { flexShrink: 1 }]}>{n.title}</Text>
-              <Text style={mono(10, { c: C.t4 })}>{n.time}</Text>
+              <Text style={mono(10, { c: C.t4 })}>{ago(n.createdAt)}</Text>
             </View>
             <Text style={[hk(13, { lh: 18, c: C.t3 }), { paddingTop: 6 }]}>{n.body}</Text>
           </View>

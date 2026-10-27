@@ -1,12 +1,12 @@
-import { useEffect, type ComponentType } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import {
-  BackHandler, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, useWindowDimensions,
+  BackHandler, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ArcadeFab, Header, StatusBarMock, TAB_BAR_BODY, TabBar } from './chrome';
 import type { Screen } from './data';
-import { isTabRoot, useHustlr } from './store';
+import { LIVE, isTabRoot, useHustlr } from './store';
 import { A, C, L, bgImage } from './theme';
 import { Arcade, Pawn, PriceIt, Spin, Store } from './screens/arcade';
 import { Login, Reset, Signup, Splash } from './screens/auth';
@@ -32,7 +32,13 @@ const FRAME_H = 860;
 const FRAME_BOTTOM = 19.5;
 
 function Phone({ framed }: { framed: boolean }) {
-  const { st, back } = useHustlr();
+  const { st, back, reload } = useHustlr();
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  };
   const insets = useSafeAreaInsets();
   const screen = st.screen;
 
@@ -63,7 +69,10 @@ function Phone({ framed }: { framed: boolean }) {
           contentContainerStyle={[{ flexGrow: 1 }, auth && !framed && { paddingBottom: insets.bottom }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            LIVE && !auth ? <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.a} colors={[C.a]} /> : undefined
+          }>
           <Body />
         </ScrollView>
       </KeyboardAvoidingView>

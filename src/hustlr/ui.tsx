@@ -5,6 +5,7 @@ import {
   type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import type { Img } from './data';
 import { C, L, hk, kicker } from './theme';
@@ -84,6 +85,11 @@ export function Photo({ src, style }: { src: Img; style: StyleProp<ViewStyle> })
   );
 }
 
+/** Quiet placeholder line for an empty list. */
+export function EmptyNote({ text }: { text: string }) {
+  return <Text style={[hk(13.5, { lh: 20, c: C.t4 }), { textAlign: 'center', paddingVertical: 24 }]}>{text}</Text>;
+}
+
 /** Text field matching the prototype's input styling. */
 export function Field({ style, ...rest }: TextInputProps & { style?: StyleProp<TextStyle> }) {
   return (
@@ -97,12 +103,41 @@ export function Field({ style, ...rest }: TextInputProps & { style?: StyleProp<T
   );
 }
 
-/** Labelled field: Geist Mono kicker over an input. */
-export function LabeledField({ label, gap = 8, ...rest }: TextInputProps & { label: string; gap?: number; style?: StyleProp<TextStyle> }) {
+/** Password input with an eye button that shows / hides what is typed. */
+export function PasswordField({ style, ...rest }: TextInputProps & { style?: StyleProp<TextStyle> }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <View style={{ justifyContent: 'center' }}>
+      <Field {...rest} secureTextEntry={!visible} autoCapitalize="none" autoCorrect={false} style={[{ paddingRight: 48 }, style]} />
+      <Pressable
+        onPress={() => setVisible((v) => !v)}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+        style={(s) => [styles.eye, Platform.OS === 'web' && styles.pointer, s.pressed && { opacity: 0.6 }]}>
+        {(s) => {
+          const c = (s as { hovered?: boolean }).hovered || visible ? C.t2 : C.t4;
+          return (
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z" />
+              <Circle cx={12} cy={12} r={2.8} />
+              {!visible && <Path d="M4 4l16 16" />}
+            </Svg>
+          );
+        }}
+      </Pressable>
+    </View>
+  );
+}
+
+/** Labelled field: Geist Mono kicker over an input. `password` adds the show / hide eye. */
+export function LabeledField({ label, gap = 8, password, ...rest }: TextInputProps & {
+  label: string; gap?: number; password?: boolean; style?: StyleProp<TextStyle>;
+}) {
   return (
     <View style={{ gap }}>
       <Text style={kicker}>{label}</Text>
-      <Field {...rest} />
+      {password ? <PasswordField {...rest} /> : <Field {...rest} />}
     </View>
   );
 }
@@ -186,6 +221,7 @@ const styles = StyleSheet.create({
     ...hk(14, { c: C.t1 }),
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
   },
+  eye: { position: 'absolute', right: 6, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   slider: { height: 19, margin: 2, justifyContent: 'center' },
   track: { height: TRACK, borderRadius: TRACK / 2, borderWidth: 1, borderColor: '#858585', backgroundColor: '#3B3B3B', overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: C.aink },

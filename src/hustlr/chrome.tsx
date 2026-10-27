@@ -38,8 +38,11 @@ export function StatusBarMock() {
 }
 
 export function Header({ screen }: { screen: Screen }) {
-  const { go, back } = useHustlr();
-  const action = HEADER_ACTIONS[screen];
+  const { st, deal, go, back, toggleWatch } = useHustlr();
+  const watching = !!deal && st.watchIds.includes(deal.id);
+  const action = screen === 'detail' && deal
+    ? { label: watching ? 'Saved ✓' : 'Save', onPress: () => toggleWatch(deal.id) }
+    : HEADER_ACTIONS[screen] && { label: HEADER_ACTIONS[screen]!.label, onPress: () => go(HEADER_ACTIONS[screen]!.to) };
   const canBack = !isTabRoot(screen);
   const showBell = screen === 'deals' || screen === 'home';
   return (
@@ -57,7 +60,7 @@ export function Header({ screen }: { screen: Screen }) {
         {TITLES[screen] ?? ''}
       </Text>
       {action && (
-        <Press onPress={() => go(action.to)} style={s.action} hover={{ backgroundColor: A(20) }}>
+        <Press onPress={action.onPress} style={s.action} hover={{ backgroundColor: A(20) }}>
           <Text style={mono(11, { ls: 0.5, c: C.aink })}>{action.label}</Text>
         </Press>
       )}

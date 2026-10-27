@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import { ART } from '../data';
-import { useHustlr } from '../store';
+import { LIVE, useHustlr } from '../store';
 import { A, C, L, bgImage, bric, hk, mono } from '../theme';
 import { LabeledField, Press, PrimaryButton } from '../ui';
 
@@ -12,12 +12,12 @@ const GRID = 58;
 
 /** Tap anywhere to enter — and it moves on by itself after a short beat. */
 export function Splash() {
-  const { go } = useHustlr();
+  const { enter } = useHustlr();
   const [size, setSize] = useState({ w: 430, h: 860 });
   useEffect(() => {
-    const id = setTimeout(() => go('login'), 2600);
+    const id = setTimeout(enter, 2600);
     return () => clearTimeout(id);
-  }, [go]);
+  }, [enter]);
 
   const { w, h } = size;
   const cols = Math.ceil(w / GRID) + 1;
@@ -25,7 +25,7 @@ export function Splash() {
 
   return (
     <Press
-      onPress={() => go('login')}
+      onPress={enter}
       pressed={{}}
       style={[s.splash, bgImage(`radial-gradient(559px 946px at 50% 35%, ${A(13)} 0%, rgba(32,197,101,0) 60%)`)]}>
       <View style={StyleSheet.absoluteFill} onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
@@ -67,53 +67,152 @@ function AuthFooter({ prompt, link, onPress }: { prompt: string; link: string; o
   );
 }
 
+type Note = { error?: string; info?: string };
+
+/** Error (red) or confirmation (green) line under an auth form. */
+function FormNote({ error, info }: Note) {
+  if (!error && !info) return null;
+  return <Text style={[hk(13, { lh: 18, c: error ? C.neg : C.aink }), { paddingTop: 12 }]}>{error ?? info}</Text>;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MIN_PASSWORD = 6;
+
+/** Live helper line under a field: grey while typing, green once satisfied, red after a failed submit. */
+function Hint({ text, ok, show, error }: { text: string; ok: boolean; show: boolean; error?: boolean }) {
+  if (!show) return null;
+  const c = ok ? C.aink : error ? C.neg : C.t4;
+  return <Text style={[mono(10, { c }), { paddingTop: 7 }]}>{ok ? '✓ ' : ''}{text}</Text>;
+}
+
 export function Login() {
-  const { go } = useHustlr();
+  const { st, set, go, signIn } = useHustlr();
+  const [email, setEmail] = useState(st.authEmail || (LIVE ? '' : 'mason@hustlr.app'));
+  const [password, setPassword] = useState(LIVE ? '' : 'hustlrhustlr');
+  const [note, setNote] = useState<Note>({});
+  const [busy, setBusy] = useState(false);
+  const emailOk = EMAIL_RE.test(email.trim());
+
+  const toSignup = () => { set({ authEmail: email.trim() }); go('signup'); };
+  const edit = (fn: (v: string) => void) => (v: string) => { fn(v); if (note.error) setNote({}); };
+
+  const submit = async () => {
+    if (busy) return;
+    if (LIVE && !emailOk) return setNote({ error: 'Enter a valid email address.' });
+    if (LIVE && !password) return setNote({ error: 'Enter your password.' });
+    setBusy(true);
+    setNote({});
+    const res = await signIn(email, password);
+    setBusy(false);
+    if (res.error) setNote({ error: res.error });
+  };
+
   return (
     <View style={s.auth}>
       <Image source={ART.logo} contentFit="contain" contentPosition="left center" style={s.authLogo} />
       <Text style={title}>{'Welcome\nback.'}</Text>
       <Text style={[sub, s.subPad]}>Your deals are waiting.</Text>
       <View style={{ gap: 14 }}>
-        <LabeledField label="EMAIL" defaultValue="mason@hustlr.app" keyboardType="email-address" autoCapitalize="none" />
-        <LabeledField label="PASSWORD" defaultValue="hustlrhustlr" secureTextEntry />
+        <LabeledField
+          label="EMAIL" value={email} onChangeText={edit(setEmail)} placeholder="you@email.com"
+          keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress"
+        />
+        <LabeledField
+          label="PASSWORD" value={password} onChangeText={edit(setPassword)} placeholder="Your password"
+          password autoComplete="password" textContentType="password" onSubmitEditing={submit}
+        />
       </View>
-      <Press onPress={() => go('reset')} style={{ alignSelf: 'flex-end', paddingTop: 14 }}>
+      <FormNote {...note} />
+      <Press onPress={() => { set({ authEmail: email.trim() }); go('reset'); }} style={{ alignSelf: 'flex-end', paddingTop: 14 }}>
         {({ hovered }) => <Text style={hk(13, { w: 600, c: hovered ? C.aink : C.t4 })}>Forgot password?</Text>}
       </Press>
-      <PrimaryButton label="Log in" onPress={() => go('deals')} style={{ marginTop: 20 }} />
+      <PrimaryButton label={busy ? 'Logging in…' : 'Log in'} onPress={submit} style={{ marginTop: 20 }} />
       <View style={s.spacer} />
-      <AuthFooter prompt="New here?" link="Create account" onPress={() => go('signup')} />
+      <AuthFooter prompt="New here?" link="Create account" onPress={toSignup} />
     </View>
   );
 }
 
 export function Signup() {
-  const { go, goLogin } = useHustlr();
+  const { st, set, signUp, goLogin } = useHustlr();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState(st.authEmail);
+  const [password, setPassword] = useState('');
+  const [note, setNote] = useState<Note>({});
+  const [tried, setTried] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const emailOk = EMAIL_RE.test(email.trim());
+  const passOk = password.length >= MIN_PASSWORD;
+
+  const toLogin = () => { set({ authEmail: email.trim() }); goLogin(); };
+  const edit = (fn: (v: string) => void) => (v: string) => { fn(v); if (note.error) setNote({}); };
+
+  const submit = async () => {
+    if (busy) return;
+    setTried(true);
+    if (LIVE && !name.trim()) return setNote({ error: 'Add your full name.' });
+    if (LIVE && !emailOk) return setNote({ error: 'Enter a valid email address.' });
+    if (LIVE && !passOk) return setNote({ error: `Password needs at least ${MIN_PASSWORD} characters.` });
+    setBusy(true);
+    setNote({});
+    const res = await signUp(name, email, password);
+    setBusy(false);
+    setNote(res);
+  };
+
   return (
     <View style={s.auth}>
       <Text style={title}>{'Create your\naccount.'}</Text>
       <Text style={[sub, s.subPad]}>Free to start. Stack from day one.</Text>
       <View style={{ gap: 14 }}>
-        <LabeledField label="FULL NAME" placeholder="Mason Reid" />
-        <LabeledField label="EMAIL" placeholder="you@email.com" keyboardType="email-address" autoCapitalize="none" />
-        <LabeledField label="PASSWORD" placeholder="Create a password" secureTextEntry />
+        <LabeledField label="FULL NAME" value={name} onChangeText={edit(setName)} placeholder="Mason Reid" autoComplete="name" />
+        <LabeledField
+          label="EMAIL" value={email} onChangeText={edit(setEmail)} placeholder="you@email.com"
+          keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress"
+        />
+        <View>
+          <LabeledField
+            label="PASSWORD" value={password} onChangeText={edit(setPassword)} placeholder="Create a password"
+            password autoComplete="new-password" textContentType="newPassword" onSubmitEditing={submit}
+          />
+          <Hint text={`At least ${MIN_PASSWORD} characters`} ok={passOk} show={LIVE && (password.length > 0 || tried)} error={tried} />
+        </View>
       </View>
-      <PrimaryButton label="Create account" onPress={() => go('deals')} style={{ marginTop: 28 }} />
+      <FormNote {...note} />
+      <PrimaryButton label={busy ? 'Creating…' : 'Create account'} onPress={submit} style={{ marginTop: 28 }} />
       <View style={s.spacer} />
-      <AuthFooter prompt="Already hustling?" link="Log in" onPress={goLogin} />
+      <AuthFooter prompt="Already hustling?" link="Log in" onPress={toLogin} />
     </View>
   );
 }
 
 export function Reset() {
-  const { goLogin } = useHustlr();
+  const { st, resetPassword, goLogin } = useHustlr();
+  const [email, setEmail] = useState(st.authEmail);
+  const [note, setNote] = useState<Note>({});
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (busy) return;
+    if (note.info) return goLogin();
+    if (LIVE && !EMAIL_RE.test(email.trim())) return setNote({ error: 'Enter the email you signed up with.' });
+    setBusy(true);
+    setNote(await resetPassword(email));
+    setBusy(false);
+  };
   return (
     <View style={s.auth}>
       <Text style={title}>Reset password</Text>
       <Text style={[hk(15, { lh: 21, c: C.t3 }), s.subPad]}>We will send a reset link to your inbox.</Text>
-      <LabeledField label="EMAIL" placeholder="you@email.com" keyboardType="email-address" autoCapitalize="none" />
-      <PrimaryButton label="Send reset link" onPress={goLogin} style={{ marginTop: 28 }} />
+      <LabeledField
+        label="EMAIL" value={email} onChangeText={(v) => { setEmail(v); if (note.error) setNote({}); }} placeholder="you@email.com"
+        keyboardType="email-address" autoCapitalize="none" autoComplete="email" onSubmitEditing={submit}
+      />
+      <FormNote {...note} />
+      <PrimaryButton
+        label={busy ? 'Sending…' : note.info ? 'Back to log in' : 'Send reset link'}
+        onPress={submit}
+        style={{ marginTop: 28 }}
+      />
     </View>
   );
 }

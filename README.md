@@ -1,7 +1,7 @@
 # HUSTLR
 
-React Native (Expo Router) build of the HUSTLR resale-flipping app, transcribed
-screen-for-screen from the design prototype.
+React Native (Expo) build of the HUSTLR resale-flipping app, ported
+screen-for-screen from the design prototype, with a Supabase backend.
 
 ## Run it
 
@@ -10,58 +10,63 @@ npm install
 npx expo start        # then press i (iOS), a (Android), or w (web)
 ```
 
+Without Supabase keys the app runs on the prototype's built-in demo data, so it
+always opens. Add keys (below) to switch to real accounts and data.
+
+## Connect Supabase
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Create the schema. Either:
+   - **SQL Editor:** paste `supabase/migrations/20261026000000_hustlr_init.sql` and run it, or
+   - **CLI:** `supabase link --project-ref <ref>` then `supabase db push`.
+3. Copy `.env.example` to `.env.local` and fill in **Project Settings → API**:
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
+   ```
+4. Restart `npx expo start` (env vars are read at bundle time).
+
+If the shared content ever goes missing (empty Hot Deals, Flip Tok or Store),
+run `supabase/seed.sql` in the SQL Editor. It only fills empty tables, so it is
+safe to run again, then pull down on any screen in the app to refresh.
+
+**Email confirmation:** Supabase asks new users to confirm their email by
+default, so after sign-up the app shows "Check your inbox". To skip that while
+developing, turn off **Authentication → Providers → Email → Confirm email**.
+
+### What lives where
+
+| Table / function | Holds |
+|---|---|
+| `profiles` | Name, handle, region, plan, and the arcade wallet (credits, streak, spins, Pawn Empire). Created by a trigger at sign-up. |
+| `deals`, `flips`, `leaderboard_entries`, `market_trends`, `store_items` | Shared content, readable by any signed-in user. Seeded by the migration. |
+| `watchlist`, `inventory_items`, `tracked_items`, `notifications` | Per-user data, locked to the owner by row-level security. |
+| `weekly_puzzles`, `puzzle_guesses` | Price It Right. The answer price is never readable by clients. |
+| `prize_wins` | $100 Prize Spin wins, for an admin to pay out. |
+| `check_in()`, `spin_wheel()`, `submit_guess()`, `buy_store_item()`, `pawn_sync()`, `buy_upgrade()`, `pawn_cash_out()` | Every change to credits, spins or Pawn cash. Clients cannot write those columns directly. |
+
+New users get a starter watchlist, four price alerts and two welcome
+notifications. Add a new Price It Right item each week by inserting a row into
+`weekly_puzzles` (dashboard or SQL).
+
 ## Structure
 
 ```
 src/
-  app/                        # expo-router routes — the file tree IS the nav tree
-    _layout.tsx               # fonts, dark theme, AppProvider, toast
-    index.tsx                 # cold start → /login
-    (auth)/                   # no bottom nav
-      login.tsx  signup.tsx  forgot.tsx
-    (app)/                    # signed in — persistent bottom nav
-      _layout.tsx             # Stack + <BottomNav/>; tabs cross-fade, rest push
-      home.tsx  deals.tsx  fliptok.tsx  inventory.tsx  profile.tsx   ← the 5 tabs
-      deal/[id].tsx           # deal detail
-      add-listing.tsx  leaderboard.tsx  watchlist.tsx  notifications.tsx
-      prize.tsx  plans.tsx  dashboard.tsx  calculator.tsx
-      tracker.tsx  trends.tsx  analyser.tsx  quick.tsx  screens.tsx
-  components/
-    icons.tsx                 # SVG icons, paths traced from the prototype
-    ui/                       # Screen, BottomNav, Toast, Card, Field, Button,
-                              # Chip, GlowCard, PhotoSlot, TopBar, Touch, brand
-  constants/
-    theme.ts                  # every colour + radius in the design
-    type.ts                   # archivo() / mono() — CSS `font:` shorthand → RN
-  data/mock.ts                # all screen content; swap for an API later
-  hooks/use-back.ts           # pop, or fall back to the current tab
-  store/app-store.tsx         # app state (watchlist, likes, calc, plan, toast…)
+  app/                 # expo-router entry: fonts + providers, renders HustlrApp
+  lib/supabase.ts      # Supabase client (null when no keys → demo mode)
+  hustlr/
+    app.tsx            # shell: header, body, tab bar, Arcade button, web phone frame
+    store.tsx          # navigation, auth, data loading, every action
+    model.ts           # data types, DB row → UI mapping, money/date formatting
+    data.ts            # static config: titles, wheel, upgrades, plans, images
+    demo.ts            # the prototype's data, used without Supabase
+    theme.ts           # colour tokens and font helpers, resolved from the prototype
+    ui.tsx  chrome.tsx # shared components, header / tabs / FAB
+    screens/           # auth, main (deals, inventory…), tools, arcade
+supabase/migrations/   # schema, security, game rules, seed data
 ```
 
-### Design system
-
-Two helpers keep type identical to the prototype's CSS. `archivo(size, weight,
-{ ls, lh, color })` and `mono(...)` take letter-spacing in **em** and
-line-height as a **multiplier**, exactly as written in the design, and resolve
-them to the pixel values React Native expects.
-
-Colours live only in `constants/theme.ts`. No screen hardcodes a hex.
-
-Fonts are Archivo (400–900) and JetBrains Mono (400–800), loaded at the root
-layout; the app renders nothing until they are ready, so there is no flash of
-fallback type.
-
-### Navigation
-
-The bottom nav is rendered by `(app)/_layout.tsx` *outside* the navigator, so it
-stays mounted while screens transition — the prototype's fixed chrome. Tapping a
-tab `replace`s the route (tabs cross-fade in 150ms); everything else `push`es and
-slides in from the right. `useTab(id)` marks which tab a screen belongs to so the
-nav stays lit while you browse sub-screens.
-
-### Screen directory
-
-`/screens` (Profile → **All screens**) lists every route. The prototype reached
-Dashboard, Calculator, Price Tracker, Market Trends, Quick Analyser and Analyse
-Listing through its side index rather than from inside the app, so this screen
-gives them a real entry point.
+Navigation mirrors the prototype: a single state machine (`go` / `back` in
+`store.tsx`) with a fixed header and tab bar, and the Android back button wired
+to `back`.
