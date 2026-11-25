@@ -19,14 +19,18 @@ type PressProps = {
   pressed?: ViewStyle;
   children?: ReactNode | ((s: { hovered: boolean; pressed: boolean }) => ReactNode);
   disabled?: boolean;
+  /** Read out by screen readers when the content is an icon. */
+  accessibilityLabel?: string;
 };
 
 /** A tappable block that mirrors the prototype's hover and active styles. */
-export function Press({ onPress, style, hover, pressed = { opacity: 0.86 }, children, disabled }: PressProps) {
+export function Press({ onPress, style, hover, pressed = { opacity: 0.86 }, children, disabled, accessibilityLabel }: PressProps) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled || !onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={accessibilityLabel}
       style={(s) => {
         const hovered = (s as { hovered?: boolean }).hovered;
         return [style, hovered && hover, s.pressed && pressed, Platform.OS === 'web' && styles.pointer];

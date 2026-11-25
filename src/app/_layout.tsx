@@ -15,6 +15,7 @@ import {
   HankenGrotesk_700Bold,
 } from '@expo-google-fonts/hanken-grotesk';
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
+import * as Sentry from '@sentry/react-native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -27,10 +28,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HustlrProvider } from '@/hustlr/store';
 import { C } from '@/hustlr/theme';
 
+// Crash reports, once a Sentry project is set up (EXPO_PUBLIC_SENTRY_DSN).
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({ dsn: sentryDsn, sendDefaultPii: false, tracesSampleRate: 0.1, enabled: !__DEV__ });
+}
+
 SplashScreen.preventAutoHideAsync();
 SystemUI.setBackgroundColorAsync(C.bg);
 
-export default function RootLayout() {
+function RootLayout() {
   const [loaded] = useFonts({
     BricolageGrotesque_700Bold,
     BricolageGrotesque_800ExtraBold,
@@ -62,3 +69,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+export default sentryDsn ? Sentry.wrap(RootLayout) : RootLayout;

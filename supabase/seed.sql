@@ -8,19 +8,19 @@
 do $$
 begin
   if not exists (select 1 from public.deals) then
-    insert into public.deals (name, source, category, buy_price, resale_price, score, risk, image_key, verdict) values
-      ('Air Jordan 4 Retro',   'FB MARKETPLACE · 2.1KM', 'Sneakers',     200, 410, 8.7, 'Low',  'jordan',
-       '[{"ok":true,"text":"High demand — 42 recent sales"},{"ok":true,"text":"Priced 38% below market"},{"ok":false,"text":"Request box & receipt photos"},{"ok":true,"text":"Recent comparable sales"}]'),
-      ('Dyson V11 Absolute',   'GUMTREE · 5.4KM',        'Home',         240, 335, 7.9, 'Low',  'dyson',
-       '[{"ok":true,"text":"Cordless vacuums sell within days"},{"ok":true,"text":"Priced 28% below market"},{"ok":false,"text":"Test battery runtime before paying"},{"ok":true,"text":"Recent comparable sales"}]'),
-      ('Pokémon 151 Box',      'EBAY · ONLINE',          'Collectibles', 159, 299, 9.1, 'Med',  'pokemon',
-       '[{"ok":true,"text":"Sealed product — 61 recent sales"},{"ok":true,"text":"Priced 47% below market"},{"ok":false,"text":"Check shrink wrap for resealing"},{"ok":true,"text":"Recent comparable sales"}]'),
-      ('LEGO Hogwarts Castle', 'FB MARKETPLACE · 8.0KM', 'Toys',         280, 352, 7.2, 'Low',  'lego',
-       '[{"ok":true,"text":"Retired set — steady demand"},{"ok":true,"text":"Priced 20% below market"},{"ok":false,"text":"Confirm all bags are sealed"},{"ok":true,"text":"Recent comparable sales"}]'),
-      ('Nintendo Switch OLED', 'GUMTREE · 3.3KM',        'Electronics',  320, 410, 6.8, 'Med',  'nswitch',
-       '[{"ok":true,"text":"Consoles move fast"},{"ok":true,"text":"Priced 22% below market"},{"ok":false,"text":"Check for Joy-Con drift"},{"ok":true,"text":"Recent comparable sales"}]'),
-      ('Apple AirPods Pro 2',  'FB MARKETPLACE · 1.2KM', 'Electronics',  180, 245, 5.4, 'High', null,
-       '[{"ok":true,"text":"High demand item"},{"ok":false,"text":"Counterfeits are common — verify serial"},{"ok":false,"text":"Ask for the original receipt"},{"ok":true,"text":"Recent comparable sales"}]');
+    insert into public.deals (name, source, category, buy_price, resale_price, score, badge, image_key, verdict, marketplace, listing_url) values
+      ('Air Jordan 4 Retro',   'FB MARKETPLACE · 2.1KM', 'Sneakers',     200, 410, 8.7, 'STEAL',  'jordan',
+       '[{"ok":true,"text":"High demand — 42 recent sales"},{"ok":true,"text":"Priced 38% below market"},{"ok":false,"text":"Request box & receipt photos"},{"ok":true,"text":"Recent comparable sales"}]', 'Facebook', 'https://www.facebook.com/marketplace/search/?query=Air+Jordan+4+Retro'),
+      ('Dyson V11 Absolute',   'GUMTREE · 5.4KM',        'Home',         240, 335, 7.9, 'STEAL',  'dyson',
+       '[{"ok":true,"text":"Cordless vacuums sell within days"},{"ok":true,"text":"Priced 28% below market"},{"ok":false,"text":"Test battery runtime before paying"},{"ok":true,"text":"Recent comparable sales"}]', 'Gumtree', 'https://www.gumtree.com.au/s-dyson-v11-absolute/k0'),
+      ('Pokémon 151 Box',      'EBAY · ONLINE',          'Collectibles', 159, 299, 9.1, 'CAUTION',  'pokemon',
+       '[{"ok":true,"text":"Sealed product — 61 recent sales"},{"ok":true,"text":"Priced 47% below market"},{"ok":false,"text":"Check shrink wrap for resealing"},{"ok":true,"text":"Recent comparable sales"}]', 'eBay', 'https://www.ebay.com/sch/i.html?_nkw=Pok%C3%A9mon+151+Box'),
+      ('LEGO Hogwarts Castle', 'FB MARKETPLACE · 8.0KM', 'Toys',         280, 352, 7.2, 'STEAL',  'lego',
+       '[{"ok":true,"text":"Retired set — steady demand"},{"ok":true,"text":"Priced 20% below market"},{"ok":false,"text":"Confirm all bags are sealed"},{"ok":true,"text":"Recent comparable sales"}]', 'Facebook', 'https://www.facebook.com/marketplace/search/?query=LEGO+Hogwarts+Castle'),
+      ('Nintendo Switch OLED', 'GUMTREE · 3.3KM',        'Electronics',  320, 410, 6.8, 'CAUTION',  'nswitch',
+       '[{"ok":true,"text":"Consoles move fast"},{"ok":true,"text":"Priced 22% below market"},{"ok":false,"text":"Check for Joy-Con drift"},{"ok":true,"text":"Recent comparable sales"}]', 'Gumtree', 'https://www.gumtree.com.au/s-nintendo-switch-oled/k0'),
+      ('Apple AirPods Pro 2',  'FB MARKETPLACE · 1.2KM', 'Electronics',  180, 245, 5.4, 'RISK', null,
+       '[{"ok":true,"text":"High demand item"},{"ok":false,"text":"Counterfeits are common — verify serial"},{"ok":false,"text":"Ask for the original receipt"},{"ok":true,"text":"Recent comparable sales"}]', 'Facebook', 'https://www.facebook.com/marketplace/search/?query=Apple+AirPods+Pro+2');
   end if;
 end $$;
 

@@ -32,6 +32,19 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "HUSTLR uses your photos so you can add pictures of the items you flip.",
+          "cameraPermission": "HUSTLR uses the camera so you can photograph the items you flip."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#20C565"
+        }
       ]
     ],
     "experiments": {

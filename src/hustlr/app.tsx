@@ -8,23 +8,25 @@ import { ArcadeFab, Header, StatusBarMock, TAB_BAR_BODY, TabBar } from './chrome
 import type { Screen } from './data';
 import { LIVE, isTabRoot, useHustlr } from './store';
 import { A, C, L, bgImage } from './theme';
+import { NewPassword, Settings } from './screens/account';
 import { Arcade, Pawn, PriceIt, Spin, Store } from './screens/arcade';
 import { Login, Reset, Signup, Splash } from './screens/auth';
+import { Item } from './screens/item';
 import { AddListing, Deals, Detail, FlipTok, Home, Inventory } from './screens/main';
 import {
   Analyse, Calculator, Dashboard, Leaderboard, Notifications, Plans, PrizesScreen, Profile, Tracker, Trends, Watchlist,
 } from './screens/tools';
 
 const SCREENS: Record<Exclude<Screen, 'splash'>, ComponentType> = {
-  login: Login, signup: Signup, reset: Reset,
+  login: Login, signup: Signup, reset: Reset, newpass: NewPassword, item: Item, settings: Settings,
   home: Home, deals: Deals, detail: Detail, fliptok: FlipTok, inventory: Inventory, add: AddListing, profile: Profile,
   dashboard: Dashboard, calculator: Calculator, tracker: Tracker, trends: Trends, analyse: Analyse,
   leaderboard: Leaderboard, watchlist: Watchlist, prizes: PrizesScreen, plans: Plans, notifications: Notifications,
   arcade: Arcade, priceit: PriceIt, pawn: Pawn, spin: Spin, store: Store,
 };
 
-const AUTH: Screen[] = ['login', 'signup', 'reset'];
-const NO_FAB: Screen[] = ['arcade', 'priceit', 'pawn', 'spin', 'store', 'add'];
+const AUTH: Screen[] = ['login', 'signup', 'reset', 'newpass'];
+const NO_FAB: Screen[] = ['arcade', 'priceit', 'pawn', 'spin', 'store', 'add', 'item', 'settings'];
 
 const FRAME_W = 430;
 const FRAME_H = 860;

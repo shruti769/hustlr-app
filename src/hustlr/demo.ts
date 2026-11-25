@@ -1,4 +1,5 @@
 import { ART, IMG, PUZZLE } from './data';
+import { DEFAULT_FEE_RATE, DEFAULT_SHIPPING } from './model';
 import type { BoardEntry, Deal, Flip, InvItem, Notice, Profile, Puzzle, StoreItem, Tracked, Trend, Verdict } from './model';
 
 /** The prototype's own data — used whenever no Supabase project is configured. */
@@ -10,29 +11,37 @@ const VERDICT: Verdict[] = [
   { ok: true, text: 'Recent comparable sales' },
 ];
 
-export const DEMO_DEALS: Deal[] = [
-  { id: 1, name: 'Air Jordan 4 Retro', source: 'FB MARKETPLACE · 2.1KM', category: 'Sneakers', buy: 200, resale: 410, score: 8.7, risk: 'Low', img: IMG.jordan, imageKey: 'jordan', verdict: VERDICT },
-  { id: 2, name: 'Dyson V11 Absolute', source: 'GUMTREE · 5.4KM', category: 'Home', buy: 240, resale: 335, score: 7.9, risk: 'Low', img: IMG.dyson, imageKey: 'dyson', verdict: VERDICT },
-  { id: 3, name: 'Pokémon 151 Box', source: 'EBAY · ONLINE', category: 'Collectibles', buy: 159, resale: 299, score: 9.1, risk: 'Med', img: IMG.pokemon, imageKey: 'pokemon', verdict: VERDICT },
-  { id: 4, name: 'LEGO Hogwarts Castle', source: 'FB MARKETPLACE · 8.0KM', category: 'Toys', buy: 280, resale: 352, score: 7.2, risk: 'Low', img: IMG.lego, imageKey: 'lego', verdict: VERDICT },
-  { id: 5, name: 'Nintendo Switch OLED', source: 'GUMTREE · 3.3KM', category: 'Electronics', buy: 320, resale: 410, score: 6.8, risk: 'Med', img: IMG.nswitch, imageKey: 'nswitch', verdict: VERDICT },
-  { id: 6, name: 'Apple AirPods Pro 2', source: 'FB MARKETPLACE · 1.2KM', category: 'Electronics', buy: 180, resale: 245, score: 5.4, risk: 'High', img: IMG.airpods, imageKey: null, verdict: VERDICT },
+const RAW_DEALS: Deal[] = [
+  { id: 1, name: 'Air Jordan 4 Retro', source: 'FB MARKETPLACE · 2.1KM', category: 'Sneakers', buy: 200, resale: 410, score: 8.7, badge: 'STEAL', img: IMG.jordan, imageKey: 'jordan', verdict: VERDICT, marketplace: 'Facebook', listingUrl: null, reason: null, estFees: 0, estShipping: DEFAULT_SHIPPING },
+  { id: 2, name: 'Dyson V11 Absolute', source: 'GUMTREE · 5.4KM', category: 'Home', buy: 240, resale: 335, score: 7.9, badge: 'STEAL', img: IMG.dyson, imageKey: 'dyson', verdict: VERDICT, marketplace: 'Gumtree', listingUrl: null, reason: null, estFees: 0, estShipping: DEFAULT_SHIPPING },
+  { id: 3, name: 'Pokémon 151 Box', source: 'EBAY · ONLINE', category: 'Collectibles', buy: 159, resale: 299, score: 9.1, badge: 'CAUTION', img: IMG.pokemon, imageKey: 'pokemon', verdict: VERDICT, marketplace: 'eBay', listingUrl: null, reason: null, estFees: 0, estShipping: DEFAULT_SHIPPING },
+  { id: 4, name: 'LEGO Hogwarts Castle', source: 'FB MARKETPLACE · 8.0KM', category: 'Toys', buy: 280, resale: 352, score: 7.2, badge: 'STEAL', img: IMG.lego, imageKey: 'lego', verdict: VERDICT, marketplace: 'Facebook', listingUrl: null, reason: null, estFees: 0, estShipping: DEFAULT_SHIPPING },
+  { id: 5, name: 'Nintendo Switch OLED', source: 'GUMTREE · 3.3KM', category: 'Electronics', buy: 320, resale: 410, score: 6.8, badge: 'CAUTION', img: IMG.nswitch, imageKey: 'nswitch', verdict: VERDICT, marketplace: 'Gumtree', listingUrl: null, reason: null, estFees: 0, estShipping: DEFAULT_SHIPPING },
+  { id: 6, name: 'Apple AirPods Pro 2', source: 'FB MARKETPLACE · 1.2KM', category: 'Electronics', buy: 180, resale: 245, score: 5.4, badge: 'RISK', img: IMG.airpods, imageKey: null, verdict: VERDICT, marketplace: 'Facebook', listingUrl: null, reason: null, estFees: 0, estShipping: DEFAULT_SHIPPING },
 ];
 
+/** Platform fee at the default rate, as the pipeline would estimate it. */
+export const DEMO_DEALS: Deal[] = RAW_DEALS.map((d) => ({ ...d, estFees: d.resale * DEFAULT_FEE_RATE }));
+
 const at = new Date(0).toISOString();
+const invItem = (i: Pick<InvItem, 'id' | 'name' | 'sku' | 'buy' | 'list' | 'status' | 'img' | 'createdAt' | 'soldAt'>): InvItem => ({
+  dealId: null, category: '', condition: '', sizeSpec: '', notes: '', photoPath: null,
+  soldPrice: i.status === 'Sold' ? i.list : null, ...i,
+});
+
 export const DEMO_INVENTORY: InvItem[] = [
-  { id: 1, name: 'Air Jordan 4 Retro', sku: 'AJ4-WHT-10', buy: 200, list: 410, status: 'Listed', img: IMG.jordan, createdAt: at, soldAt: null },
-  { id: 2, name: 'Dyson V11 Absolute', sku: 'DYS-V11-02', buy: 240, list: 335, status: 'Listed', img: IMG.dyson, createdAt: at, soldAt: null },
-  { id: 3, name: 'Pokémon 151 Box', sku: 'PKM-151-SB', buy: 159, list: 299, status: 'Sold', img: IMG.pokemon, createdAt: at, soldAt: at },
-  { id: 4, name: 'LEGO Hogwarts Castle', sku: 'LGO-HOG-71', buy: 280, list: 352, status: 'Sourcing', img: IMG.lego, createdAt: at, soldAt: null },
-  { id: 5, name: 'Nintendo Switch OLED', sku: 'NSW-OLED-W', buy: 320, list: 410, status: 'Listed', img: IMG.nswitch, createdAt: at, soldAt: null },
+  invItem({ id: 1, name: 'Air Jordan 4 Retro', sku: 'AJ4-WHT-10', buy: 200, list: 410, status: 'Listed', img: IMG.jordan, createdAt: at, soldAt: null }),
+  invItem({ id: 2, name: 'Dyson V11 Absolute', sku: 'DYS-V11-02', buy: 240, list: 335, status: 'Listed', img: IMG.dyson, createdAt: at, soldAt: null }),
+  invItem({ id: 3, name: 'Pokémon 151 Box', sku: 'PKM-151-SB', buy: 159, list: 299, status: 'Sold', img: IMG.pokemon, createdAt: at, soldAt: at }),
+  invItem({ id: 4, name: 'LEGO Hogwarts Castle', sku: 'LGO-HOG-71', buy: 280, list: 352, status: 'Sourcing', img: IMG.lego, createdAt: at, soldAt: null }),
+  invItem({ id: 5, name: 'Nintendo Switch OLED', sku: 'NSW-OLED-W', buy: 320, list: 410, status: 'Listed', img: IMG.nswitch, createdAt: at, soldAt: null }),
 ];
 
 export const DEMO_FLIPS: Flip[] = [
-  { id: 1, initials: 'MR', name: 'Marcus R.', handle: '@stackking', bought: 200, sold: 410, img: IMG.flip1, likes: 1200, shares: 86, copy: 'Picked these up local, sold same week. Clean 105% flip. AI flagged it before the listing hit the feeds.' },
-  { id: 2, initials: 'PN', name: 'Priya N.', handle: '@flipqueen', bought: 240, sold: 335, img: IMG.dyson, likes: 870, shares: 41, copy: 'Cordless vacuums never sit. Two days on Gumtree and gone.' },
-  { id: 3, initials: 'DW', name: 'Deon W.', handle: '@thedealhunter', bought: 159, sold: 299, img: IMG.pokemon, likes: 2400, shares: 155, copy: 'Sealed boxes only. Score was 9.1 so I bought three.' },
-  { id: 4, initials: 'SK', name: 'Sam K.', handle: '@sourceandsell', bought: 280, sold: 352, img: IMG.lego, likes: 640, shares: 28, copy: 'Retired LEGO sets are slow but safe. Every single time.' },
+  { id: 1, initials: 'MR', name: 'Marcus R.', handle: '@stackking', bought: 200, sold: 410, img: IMG.flip1, likes: 1200, shares: 86, copy: 'Picked these up local, sold same week. Clean 105% flip. AI flagged it before the listing hit the feeds.', userId: null },
+  { id: 2, initials: 'PN', name: 'Priya N.', handle: '@flipqueen', bought: 240, sold: 335, img: IMG.dyson, likes: 870, shares: 41, copy: 'Cordless vacuums never sit. Two days on Gumtree and gone.', userId: null },
+  { id: 3, initials: 'DW', name: 'Deon W.', handle: '@thedealhunter', bought: 159, sold: 299, img: IMG.pokemon, likes: 2400, shares: 155, copy: 'Sealed boxes only. Score was 9.1 so I bought three.', userId: null },
+  { id: 4, initials: 'SK', name: 'Sam K.', handle: '@sourceandsell', bought: 280, sold: 352, img: IMG.lego, likes: 640, shares: 28, copy: 'Retired LEGO sets are slow but safe. Every single time.', userId: null },
 ];
 
 export const DEMO_BOARD: BoardEntry[] = [
@@ -63,12 +72,12 @@ export const DEMO_TRACKED: Tracked[] = [
 
 const minsAgo = (m: number) => new Date(Date.now() - m * 60000).toISOString();
 export const DEMO_NOTICES: Notice[] = [
-  { id: 1, title: 'New high-score deal found', body: 'Pokémon 151 Box · Score 9.1 · +$140 profit', img: IMG.pokemon, createdAt: minsAgo(2) },
-  { id: 2, title: 'Price target hit', body: 'Air Jordan 4 reached your $380 target — now $410', img: IMG.jordan, createdAt: minsAgo(26) },
-  { id: 3, title: 'Item sold', body: 'Dyson V11 sold on Facebook for $335 (+$95)', img: IMG.dyson, createdAt: minsAgo(60) },
-  { id: 4, title: 'Scam risk flagged', body: 'A watched listing showed red flags. Review before buying.', img: IMG.scam, createdAt: minsAgo(180) },
-  { id: 5, title: 'Prize entries earned', body: '+5 entries for closing a verified flip', img: IMG.pokemon, createdAt: minsAgo(1440) },
-  { id: 6, title: 'Weekly recap ready', body: 'You stacked $420 across 3 flips this week', img: IMG.recap, createdAt: minsAgo(2880) },
+  { id: 1, title: 'New high-score deal found', body: 'Pokémon 151 Box · Score 9.1 · +$140 profit', img: IMG.pokemon, createdAt: minsAgo(2), read: true, dealId: null },
+  { id: 2, title: 'Price target hit', body: 'Air Jordan 4 reached your $380 target — now $410', img: IMG.jordan, createdAt: minsAgo(26), read: true, dealId: null },
+  { id: 3, title: 'Item sold', body: 'Dyson V11 sold on Facebook for $335 (+$95)', img: IMG.dyson, createdAt: minsAgo(60), read: true, dealId: null },
+  { id: 4, title: 'Scam risk flagged', body: 'A watched listing showed red flags. Review before buying.', img: IMG.scam, createdAt: minsAgo(180), read: true, dealId: null },
+  { id: 5, title: 'Prize entries earned', body: '+5 entries for closing a verified flip', img: IMG.pokemon, createdAt: minsAgo(1440), read: true, dealId: null },
+  { id: 6, title: 'Weekly recap ready', body: 'You stacked $420 across 3 flips this week', img: IMG.recap, createdAt: minsAgo(2880), read: true, dealId: null },
 ];
 
 export const DEMO_STORE: StoreItem[] = [
@@ -89,5 +98,5 @@ export const DEMO_PUZZLE: Puzzle = {
 
 export const DEMO_PROFILE: Profile = {
   name: 'Mason Reid', handle: '@mrhustle', email: 'mason@hustlr.app', region: 'Sydney, AU',
-  plan: 'hustler', memberSince: new Date(2024, 0, 15).toISOString(),
+  plan: 'hustler', memberSince: new Date(2024, 0, 15).toISOString(), dealAlerts: true, flipRules: true,
 };

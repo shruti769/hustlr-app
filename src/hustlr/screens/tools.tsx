@@ -1,14 +1,16 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import {
   CALC_FIELDS, ENTRY_TASKS, KPIS, PLANS, PROFILE_META, PROFILE_STATS, SHOW_PRIZE_DRAW, TOOLS, WINNERS,
 } from '../data';
-import { PLAN_LABEL, ago, compact, initialsOf, money, monthYear, pct, roi, signed, type Deal } from '../model';
+import { PLAN_LABEL, ago, type Analysis, compact, initialsOf, money, monthYear, pct, roi, signed, type Deal } from '../model';
+import { billingAvailable, type PaidPlan } from '../billing';
 import { LIVE, useHustlr } from '../store';
 import { A, C, G, L, bgImage, bric, card, hk, kicker, label9, mono } from '../theme';
-import { EmptyNote, Grid2, Photo, Press, Slider } from '../ui';
-import { AreaChart, Avatar, Check } from './main';
+import { EmptyNote, Field, Grid2, Photo, Press, Slider } from '../ui';
+import { AreaChart, Avatar, Check, DealBadge } from './main';
 
 const pad = { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 110 } as const;
 
@@ -117,21 +119,66 @@ export function Calculator() {
 }
 
 export function Tracker() {
-  const { st } = useHustlr();
+  const { st, addTracked, removeTracked } = useHustlr();
+  const [name, setName] = useState('');
+  const [target, setTarget] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const showForm = st.trackForm || (LIVE && st.tracked.length === 0);
+
+  const add = async () => {
+    if (busy) return;
+    setBusy(true);
+    const err = await addTracked(name, toPrice(target));
+    setBusy(false);
+    if (err) return setError(err);
+    setName('');
+    setTarget('');
+    setError(null);
+  };
+
   return (
     <View style={[pad, { gap: 11 }]}>
       <Text style={kicker}>{LIVE ? st.tracked.length : 5} ITEMS WATCHED · ALERTS ON</Text>
-      {st.tracked.length === 0 && <EmptyNote text="Nothing tracked yet." />}
+      {showForm && (
+        <View style={[card(13, A(25)), { padding: 15, gap: 10 }]}>
+          <Text style={label9}>TRACK AN ITEM</Text>
+          <Field
+            value={name} onChangeText={(v) => { setName(v); setError(null); }} placeholder="e.g. Air Jordan 4 Retro"
+            style={{ height: 44, ...hk(13.5, { c: C.t1 }) }}
+          />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Field
+              value={target} onChangeText={(v) => { setTarget(v); setError(null); }} placeholder="Sell target $"
+              keyboardType="decimal-pad" onSubmitEditing={add}
+              style={{ flex: 1, height: 44, ...mono(13.5, { c: C.t1 }) }}
+            />
+            <Press onPress={add} style={s.trackAdd} hover={{ backgroundColor: C.a2 }}>
+              <Text style={hk(14, { w: 700, c: C.ona })}>{busy ? 'Adding…' : 'Track'}</Text>
+            </Press>
+          </View>
+          {error ? <Text style={hk(13, { c: C.neg })}>{error}</Text> : (
+            <Text style={mono(10, { lh: 15, c: C.t4 })}>We check its resale price every 30 minutes and alert you when it hits your target.</Text>
+          )}
+        </View>
+      )}
       {st.tracked.map((t) => (
-        <View key={t.name} style={[card(), { padding: 15 }]}>
+        <View key={t.id} style={[card(), { padding: 15 }]}>
           <View style={s.between}>
-            <Text style={hk(14, { w: 600, c: C.t1 })}>{t.name}</Text>
-            <Text style={mono(12, { c: t.change >= 0 ? C.aink : C.neg })}>{pct(t.change)}</Text>
+            <Text style={[hk(14, { w: 600, c: C.t1 }), { flexShrink: 1 }]}>{t.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={mono(12, { c: t.change >= 0 ? C.aink : C.neg })}>{pct(t.change)}</Text>
+              {LIVE && (
+                <Press onPress={() => removeTracked(t.id)} style={s.remove} hover={{ borderColor: 'rgba(255,92,92,0.5)' }}>
+                  <Text style={mono(11, { lh: 1, c: C.t4 })}>✕</Text>
+                </Press>
+              )}
+            </View>
           </View>
           <View style={{ flexDirection: 'row', gap: 26, paddingTop: 14 }}>
             <View>
               <Text style={label9}>NOW</Text>
-              <Text style={[mono(14, { w: 500, c: C.t1 }), { paddingTop: 7 }]}>{money(t.now)}</Text>
+              <Text style={[mono(14, { w: 500, c: C.t1 }), { paddingTop: 7 }]}>{t.now > 0 ? money(t.now) : '—'}</Text>
             </View>
             <View>
               <Text style={label9}>TARGET</Text>
@@ -139,7 +186,7 @@ export function Tracker() {
             </View>
             <View style={{ flex: 1, alignSelf: 'flex-end' }}>
               <View style={s.track}>
-                <View style={[s.trackFill, { width: `${(t.pct ?? Math.min(1, t.now / t.target)) * 100}%` }]} />
+                <View style={[s.trackFill, { width: `${(t.pct ?? Math.min(1, t.target > 0 ? t.now / t.target : 0)) * 100}%` }]} />
               </View>
             </View>
           </View>
@@ -170,49 +217,143 @@ export function Trends() {
   );
 }
 
+const DEMO_ANALYSIS: Analysis = {
+  title: 'Air Jordan 4 Retro', marketplace: 'Facebook', url: null, imageUrl: null,
+  price: 200, cost: 200, resale: 410, fees: 53, shipping: 15, profit: 172, roi: 86,
+  badge: 'STEAL', score: 8.7, reason: '', resaleSource: 'sample', sampleSize: 42, by: 'rules',
+  checks: [
+    { ok: true, text: 'High demand — 42 comparable sales' },
+    { ok: true, text: 'Priced 38% below market' },
+    { ok: false, text: 'Verify authenticity — request box photos' },
+  ],
+};
+
+const toPrice = (v: string) => {
+  const n = parseFloat(v.replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+};
+
 export function Analyse() {
+  const { st, set, go, analyseListing, addInventory } = useHustlr();
+  const [url, setUrl] = useState(st.analyseUrl);
+  const [title, setTitle] = useState('');
+  const [price, setPrice] = useState('');
+  const [result, setResult] = useState<Analysis | null>(LIVE ? null : DEMO_ANALYSIS);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    if (st.analyseUrl) set({ analyseUrl: '' });
+  }, [st.analyseUrl, set]);
+
+  const run = async () => {
+    if (busy) return;
+    if (!LIVE) return setResult(DEMO_ANALYSIS);
+    if (!url.trim() && !(title.trim() && toPrice(price) > 0)) {
+      return setError('Paste a listing link, or add the title and asking price.');
+    }
+    setBusy(true);
+    setError(null);
+    setAdded(false);
+    const res = await analyseListing({
+      url: url.trim() || undefined,
+      title: title.trim() || undefined,
+      price: toPrice(price) || undefined,
+    });
+    setBusy(false);
+    if (res.error) setError(res.error);
+    setResult(res.result ?? null);
+  };
+
+  const addToInventory = async () => {
+    if (!result || added) return;
+    const err = await addInventory({
+      dealId: null, name: result.title, category: '', condition: '', sizeSpec: '',
+      buy: result.cost, list: Math.round(result.resale), platforms: ['eBay'], status: 'Sourcing',
+    });
+    if (err) setError(err);
+    else setAdded(true);
+  };
+
   const metric = (label: string, value: string, accent?: boolean) => (
     <View style={s.metric}>
       <Text style={label9}>{label}</Text>
       <Text style={[mono(14, { w: accent ? 600 : 500, c: accent ? C.aink : C.t1 }), { paddingTop: 8 }]}>{value}</Text>
     </View>
   );
+  const edit = (fn: (v: string) => void) => (v: string) => { fn(v); setError(null); };
+
   return (
     <View style={[pad, { gap: 14 }]}>
       <View>
         <Text style={kicker}>LISTING URL OR DETAILS</Text>
-        <View style={[card(12, L(10)), { marginTop: 11, padding: 14 }]}>
-          <Text style={hk(13.5, { c: C.t1 })}>https://facebook.com/marketplace/item/…</Text>
+        <Field
+          value={url} onChangeText={edit(setUrl)} placeholder="https://www.ebay.com/itm/…"
+          autoCapitalize="none" autoCorrect={false} keyboardType="url" onSubmitEditing={run}
+          style={{ marginTop: 11, ...hk(13.5, { c: C.t1 }) }}
+        />
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+          <Field
+            value={title} onChangeText={edit(setTitle)} placeholder="Or the item title…"
+            style={{ flex: 1, borderColor: L(6), ...hk(13.5, { c: C.t1 }) }}
+          />
+          <Field
+            value={price} onChangeText={edit(setPrice)} placeholder="$ price" keyboardType="decimal-pad"
+            style={{ width: 96, borderColor: L(6), ...mono(13.5, { c: C.t1 }) }}
+          />
         </View>
-        <View style={[card(12, L(6)), { marginTop: 10, padding: 14 }]}>
-          <Text style={hk(13.5, { c: C.t4 })}>Or paste title, price, condition…</Text>
-        </View>
-        <View style={s.analyseBtn}>
-          <Text style={hk(15, { w: 700, c: C.ona })}>Analyse listing</Text>
-        </View>
+        <Press onPress={run} style={s.analyseBtn} hover={{ backgroundColor: C.a2 }}>
+          <Text style={hk(15, { w: 700, c: C.ona })}>{busy ? 'Analysing…' : 'Analyse listing'}</Text>
+        </Press>
+        {error ? <Text style={[hk(13, { lh: 18, c: C.neg }), { paddingTop: 10 }]}>{error}</Text> : null}
       </View>
-      <View style={[card(), { padding: 16 }]}>
-        <View style={[s.between, { alignItems: 'flex-start' }]}>
-          <View>
-            <Text style={hk(15, { w: 700, ls: -0.2, c: C.t1 })}>Air Jordan 4 Retro</Text>
-            <Text style={[mono(10, { c: C.t4 }), { paddingTop: 7 }]}>FB MARKETPLACE · $200 · USED</Text>
+
+      {result && (
+        <View style={[card(), { padding: 16 }]}>
+          <View style={[s.between, { alignItems: 'flex-start', gap: 12 }]}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={hk(15, { w: 700, ls: -0.2, c: C.t1 })}>{result.title}</Text>
+              <Text style={[mono(10, { c: C.t4 }), { paddingTop: 7 }]}>
+                {result.marketplace.toUpperCase()} · {money(result.price)}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 6 }}>
+              <Text style={bric(26, { lh: 1, c: result.badge === 'RISK' ? C.neg : C.aink })}>{result.score.toFixed(1)}</Text>
+              <DealBadge badge={result.badge} />
+            </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={bric(26, { lh: 1, c: C.aink })}>8.7</Text>
-            <Text style={[label9, { paddingTop: 5 }]}>SCORE</Text>
+          {result.reason ? <Text style={[hk(13.5, { lh: 19, c: C.t2 }), { paddingTop: 12 }]}>{result.reason}</Text> : null}
+          <View style={{ flexDirection: 'row', gap: 10, paddingTop: 16 }}>
+            {metric('RESALE', money(Math.round(result.resale)))}
+            {metric('EST. PROFIT', signed(Math.round(result.profit)), result.profit > 0)}
+            {metric('ROI', `${result.roi}%`, result.profit > 0)}
           </View>
+          <View style={{ gap: 12, paddingTop: 18 }}>
+            {result.checks.map((c) => (
+              <Check
+                key={c.text} monoMark={false} mark={c.ok ? '✓' : '!'} text={c.text}
+                bg={c.ok ? A(15) : 'rgba(233,196,106,0.15)'} fg={c.ok ? C.aink : C.goldink}
+              />
+            ))}
+          </View>
+          {LIVE && (
+            <View style={{ gap: 10, paddingTop: 18 }}>
+              {result.url ? (
+                <Press onPress={() => Linking.openURL(result.url!)} style={s.analyseBtn}>
+                  <Text style={hk(15, { w: 700, c: C.ona })}>View on {result.marketplace} ↗</Text>
+                </Press>
+              ) : null}
+              <Press onPress={added ? () => go('inventory') : addToInventory} style={s.secondaryBtn}>
+                <Text style={hk(14, { w: 700, c: C.aink })}>{added ? 'Added · Open inventory' : 'Add to inventory'}</Text>
+              </Press>
+              <Text style={mono(10, { lh: 15, c: C.t5 })}>
+                Estimate from {result.sampleSize} comparable {result.resaleSource.includes('sold') ? 'sales' : 'listings'}, after fees and shipping.
+              </Text>
+            </View>
+          )}
         </View>
-        <View style={{ flexDirection: 'row', gap: 10, paddingTop: 16 }}>
-          {metric('RESALE', '$410')}
-          {metric('PROFIT', '+$172', true)}
-          {metric('ROI', '86%', true)}
-        </View>
-        <View style={{ gap: 12, paddingTop: 18 }}>
-          <Check monoMark={false} mark="✓" text="High demand — 42 comparable sales" bg={A(15)} fg={C.aink} />
-          <Check monoMark={false} mark="✓" text="Priced 38% below market" bg={A(15)} fg={C.aink} />
-          <Check monoMark={false} mark="!" text="Verify authenticity — request box photos" bg="rgba(233,196,106,0.15)" fg={C.goldink} />
-        </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -343,9 +484,30 @@ function Prizes() {
 }
 
 export function Plans() {
-  const { st } = useHustlr();
+  const { st, upgradePlan, restorePurchases } = useHustlr();
+  const [note, setNote] = useState<{ error?: string; info?: string }>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const current = st.profile.plan;
   const ctaOf = (p: (typeof PLANS)[number]) =>
-    !LIVE ? p.cta : p.key === st.profile.plan ? 'Current plan' : p.key === 'scout' ? 'Switch to Scout' : p.cta;
+    !LIVE ? p.cta : busy === p.key ? 'Opening store…' : p.key === current ? 'Current plan' : p.key === 'scout' ? 'Free plan' : p.cta;
+
+  const choose = async (key: string) => {
+    if (!LIVE || busy || key === current) return;
+    if (key === 'scout') {
+      return setNote({ info: 'To go back to Scout, cancel your subscription in your App Store or Google Play settings.' });
+    }
+    setBusy(key);
+    setNote(await upgradePlan(key as PaidPlan));
+    setBusy(null);
+  };
+
+  const restore = async () => {
+    if (busy) return;
+    setBusy('restore');
+    setNote(await restorePurchases());
+    setBusy(null);
+  };
+
   return (
     <View style={[pad, { gap: 14 }]}>
       <View>
@@ -365,7 +527,7 @@ export function Plans() {
             <Text style={mono(12, { c: C.t4 })}>/mo</Text>
           </View>
           <Text style={hk(13.5, { c: C.t3 })}>{p.tagline}</Text>
-          <Press style={[s.planCta, { backgroundColor: p.ctaBg, borderColor: p.ctaBd }]} onPress={() => {}}>
+          <Press style={[s.planCta, { backgroundColor: p.ctaBg, borderColor: p.ctaBd }]} onPress={() => choose(p.key)}>
             <Text style={hk(14, { w: 700, c: p.ctaFg })}>{ctaOf(p)}</Text>
           </Press>
           <View style={{ gap: 11, paddingTop: 16 }}>
@@ -378,6 +540,25 @@ export function Plans() {
           </View>
         </View>
       ))}
+      {note.error || note.info ? (
+        <Text style={hk(13, { lh: 18, c: note.error ? C.neg : C.aink })}>{note.error ?? note.info}</Text>
+      ) : null}
+      {LIVE && (
+        <>
+          <Press onPress={restore} style={{ alignSelf: 'center', padding: 6 }}>
+            {({ hovered }) => (
+              <Text style={hk(13.5, { w: 600, c: hovered ? C.aink : C.t3 })}>
+                {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
+              </Text>
+            )}
+          </Press>
+          <Text style={[mono(10, { lh: 15, c: C.t5 }), { textAlign: 'center' }]}>
+            {billingAvailable
+              ? 'Plans renew monthly until cancelled in your App Store or Google Play settings. Payment is charged to your store account.'
+              : 'Subscriptions are sold in the HUSTLR iPhone and Android apps.'}
+          </Text>
+        </>
+      )}
     </View>
   );
 }
@@ -454,12 +635,19 @@ export function Profile() {
 }
 
 export function Notifications() {
-  const { st } = useHustlr();
+  const { st, markNoticesRead, openDeal } = useHustlr();
+  // Unread styling shows on this visit; the list is marked read as it opens.
+  const [unread] = useState(() => new Set(st.notices.filter((n) => !n.read).map((n) => n.id)));
+  useEffect(() => { markNoticesRead(); }, [markNoticesRead]);
   return (
     <View style={[pad, { gap: 11 }]}>
       {st.notices.length === 0 && <EmptyNote text="You're all caught up." />}
       {st.notices.map((n) => (
-        <View key={n.id} style={[card(), { flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 14 }]}>
+        <Press
+          key={n.id}
+          onPress={n.dealId ? () => openDeal(n.dealId!) : undefined}
+          style={[card(13, unread.has(n.id) ? A(30) : L(8)), { flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 14 }]}
+          hover={n.dealId ? { borderColor: A(35) } : undefined}>
           <Photo src={n.img} style={{ width: 42, height: 42, borderRadius: 10 }} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
@@ -468,7 +656,7 @@ export function Notifications() {
             </View>
             <Text style={[hk(13, { lh: 18, c: C.t3 }), { paddingTop: 6 }]}>{n.body}</Text>
           </View>
-        </View>
+        </Press>
       ))}
     </View>
   );
@@ -485,6 +673,15 @@ const s = StyleSheet.create({
   trackFill: { height: 4, borderRadius: 2, backgroundColor: C.aink },
   metric: { flex: 1, padding: 12, borderRadius: 11, borderWidth: 1, borderColor: L(7) },
   analyseBtn: { marginTop: 14, height: 50, borderRadius: 12, backgroundColor: C.aink, alignItems: 'center', justifyContent: 'center' },
+  trackAdd: { height: 44, paddingHorizontal: 20, borderRadius: 12, backgroundColor: C.aink, alignItems: 'center', justifyContent: 'center' },
+  remove: {
+    width: 26, height: 26, borderRadius: 8, borderWidth: 1, borderColor: L(10),
+    alignItems: 'center', justifyContent: 'center',
+  },
+  secondaryBtn: {
+    height: 48, borderRadius: 12, backgroundColor: A(12), borderWidth: 1, borderColor: A(30),
+    alignItems: 'center', justifyContent: 'center',
+  },
   boardRow: { gap: 12, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 13, borderWidth: 1 },
   scorePill: {
     flexDirection: 'row', gap: 5, alignItems: 'center', paddingVertical: 4, paddingHorizontal: 9,

@@ -30,9 +30,52 @@ If the shared content ever goes missing (empty Hot Deals, Flip Tok or Store),
 run `supabase/seed.sql` in the SQL Editor. It only fills empty tables, so it is
 safe to run again, then pull down on any screen in the app to refresh.
 
+**Edge functions:** account deletion runs server-side. Deploy it once with the
+CLI (`supabase login`, `supabase link --project-ref <ref>`, then
+`supabase functions deploy delete-account`).
+
+**Redirect URLs:** password-reset links and Google / Apple sign-in come back
+into the app. Under **Authentication → URL Configuration → Redirect URLs** add
+`hustlrapp://**` (installed app), `exp://**` (Expo Go) and
+`http://localhost:8081/**` (web dev). Google and Apple buttons appear on the
+login screen automatically once those providers are enabled under
+**Authentication → Sign In / Providers**.
+
 **Email confirmation:** Supabase asks new users to confirm their email by
 default, so after sign-up the app shows "Check your inbox". To skip that while
 developing, turn off **Authentication → Providers → Email → Confirm email**.
+
+### Deals pipeline, alerts and payments
+
+Edge functions (deploy all with `supabase functions deploy`):
+
+| Function | Runs | Does |
+|---|---|---|
+| `collect-listings` | every 5 min (cron) | Pulls new listings for the `search_terms` table into the `raw_listings` queue; caches a resale price per term |
+| `score-listings` | every minute (cron) | Works the queue in batches of 25: profit after fees, drops thin deals, AI-scores the rest (STEAL / CAUTION / RISK), upserts `deals`, alerts users about new Steals |
+| `track-prices` | every 30 min (cron) | Refreshes watched items' prices and alerts on targets |
+| `analyse-listing` | on demand | Scores a link or title + price a user shares (Scout: 10 a day) |
+| `revenuecat-webhook` | RevenueCat | The only writer of `profiles.plan` |
+| `delete-account` | on demand | Deletes the user, their photos and data |
+
+Schedule the cron jobs by filling in and running `supabase/cron.sql`.
+Function secrets (`supabase secrets set NAME=value`):
+
+| Secret | Needed for |
+|---|---|
+| `PIPELINE_SECRET` | cron → pipeline calls (same value as in `cron.sql`) |
+| `ANTHROPIC_API_KEY` | AI deal scoring (without it, badges come from profit rules). `AI_MODEL` overrides the model |
+| `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | live eBay listings (without them a sample source makes test listings). `EBAY_INSIGHTS=true` once sold-price access is approved; `EBAY_CAMPAIGN_ID` for eBay Partner Network links |
+| `REVENUECAT_WEBHOOK_SECRET` | the webhook's Authorization header, as set in RevenueCat |
+| `EXPO_ACCESS_TOKEN` | only if Expo push security is enabled |
+
+App build setup:
+
+- **Push alerts:** `npx eas-cli init` (adds the EAS project id), then a development or store build — push does not work in Expo Go.
+- **Plans:** in RevenueCat create entitlements `hustler` and `mogul` and a current offering with packages `hustler_monthly` and `mogul_monthly`; put the public SDK keys in `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `_ANDROID_KEY`.
+- **Crash reports:** set `EXPO_PUBLIC_SENTRY_DSN`. For readable stack traces from store builds, add the `@sentry/react-native/expo` config plugin with your Sentry org and project and a `SENTRY_AUTH_TOKEN`.
+
+Plan limits are enforced in the database: Scout keeps 20 inventory items and 3 tracked items.
 
 ### What lives where
 

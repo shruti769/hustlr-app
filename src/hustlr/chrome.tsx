@@ -6,7 +6,7 @@ import Animated, {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { HEADER_ACTIONS, TITLES, type Screen } from './data';
-import { isTabRoot, useHustlr } from './store';
+import { LIVE, isTabRoot, useHustlr } from './store';
 import { A, C, L, bgImage, bric, mono } from './theme';
 import { Press, ScalePress } from './ui';
 
@@ -38,11 +38,15 @@ export function StatusBarMock() {
 }
 
 export function Header({ screen }: { screen: Screen }) {
-  const { st, deal, go, back, toggleWatch } = useHustlr();
+  const { st, set, deal, go, back, toggleWatch } = useHustlr();
   const watching = !!deal && st.watchIds.includes(deal.id);
   const action = screen === 'detail' && deal
     ? { label: watching ? 'Saved ✓' : 'Save', onPress: () => toggleWatch(deal.id) }
-    : HEADER_ACTIONS[screen] && { label: HEADER_ACTIONS[screen]!.label, onPress: () => go(HEADER_ACTIONS[screen]!.to) };
+    : screen === 'tracker'
+      ? { label: st.trackForm ? 'Close' : '+ Track', onPress: () => set({ trackForm: !st.trackForm }) }
+      : HEADER_ACTIONS[screen] && { label: HEADER_ACTIONS[screen]!.label, onPress: () => go(HEADER_ACTIONS[screen]!.to) };
+  // The prototype always shows the dot; live, it marks unread notifications.
+  const unread = !LIVE || st.notices.some((n) => !n.read);
   const canBack = !isTabRoot(screen);
   const showBell = screen === 'deals' || screen === 'home';
   return (
@@ -72,7 +76,7 @@ export function Header({ screen }: { screen: Screen }) {
                 <Path d="M4 6.5a4 4 0 0 1 8 0c0 3 1.2 4 1.2 4H2.8S4 9.5 4 6.5Z" />
                 <Path d="M6.5 13a1.6 1.6 0 0 0 3 0" />
               </Svg>
-              <View style={s.bellDot} />
+              {unread && <View style={s.bellDot} />}
             </>
           )}
         </Press>

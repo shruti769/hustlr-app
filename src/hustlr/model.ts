@@ -1,41 +1,78 @@
 import type { ImageSourcePropType } from 'react-native';
 
-import { ART, IMG, type Img, type Risk } from './data';
+import { ART, IMG, type Badge, type Img } from './data';
 
 export type Verdict = { ok: boolean; text: string };
 
 export type Deal = {
   id: number; name: string; source: string; category: string;
-  buy: number; resale: number; score: number; risk: Risk; img: Img; imageKey: string | null; verdict: Verdict[];
+  buy: number; resale: number; score: number; badge: Badge; img: Img; imageKey: string | null; verdict: Verdict[];
+  /** Where the listing lives — eBay, Amazon, Etsy, Facebook… */
+  marketplace: string;
+  /** The original listing; buying always happens there. */
+  listingUrl: string | null;
+  /** One-line AI reason for the badge. */
+  reason: string | null;
+  estFees: number;
+  estShipping: number;
 };
+
+/** Platform fee and postage assumed when the pipeline has not priced them. */
+export const DEFAULT_FEE_RATE = 0.129;
+export const DEFAULT_SHIPPING = 15;
+
+/** Estimated profit after fees and postage — always shown as an estimate. */
+export const estProfit = (d: Deal) => d.resale - d.buy - d.estFees - d.estShipping;
 
 export type InvStatus = 'Sourcing' | 'Listed' | 'Sold';
 export type InvItem = {
-  id: number; name: string; sku: string; buy: number; list: number; status: InvStatus;
-  img: Img; createdAt: string; soldAt: string | null;
+  id: number; dealId: number | null; name: string; sku: string; category: string; condition: string; sizeSpec: string;
+  notes: string; buy: number; list: number; status: InvStatus; soldPrice: number | null;
+  img: Img; photoPath: string | null; createdAt: string; soldAt: string | null;
 };
+
+/** Real profit once sold; expected profit at the listing price before that. */
+export const invProfit = (i: InvItem) => (i.status === 'Sold' ? (i.soldPrice ?? i.list) : i.list) - i.buy;
 
 export type Flip = {
   id: number; initials: string; name: string; handle: string; bought: number; sold: number;
   copy: string; img: Img; likes: number; shares: number;
+  /** Author's user id; null for HUSTLR's own featured posts. */
+  userId: string | null;
 };
+
+export type ReportReason = 'spam' | 'scam' | 'offensive' | 'fake' | 'other';
 
 export type BoardEntry = { initials: string; name: string; handle: string; profit: number; streakDays: number; me?: boolean };
 export type Trend = { name: string; watching: string; change: number; spark: string };
 export type Tracked = { id: number; name: string; now: number; target: number; change: number; pct?: number };
-export type Notice = { id: number; title: string; body: string; img: Img; createdAt: string };
+export type Notice = { id: number; title: string; body: string; img: Img; createdAt: string; read: boolean; dealId: number | null };
 export type StoreItem = { key: string; group: string; name: string; desc: string; cost: number };
 export type Puzzle = {
   name: string; meta: string; img: Img; closesAt: string;
   guess: number | null; reward: number | null; actual: number | null;
 };
-export type Profile = { name: string; handle: string; email: string; region: string; plan: string; memberSince: string };
+/** What analyse-listing returns for a shared link. */
+export type Analysis = {
+  title: string; marketplace: string; url: string | null; imageUrl: string | null;
+  price: number; cost: number; resale: number; fees: number; shipping: number; profit: number; roi: number;
+  badge: Badge; score: number; reason: string; checks: Verdict[];
+  resaleSource: string; sampleSize: number; by: 'ai' | 'rules';
+};
+
+export type Profile = {
+  name: string; handle: string; email: string; region: string; plan: string; memberSince: string;
+  /** Push and in-app alerts for new Steals. */
+  dealAlerts: boolean;
+  /** Accepted the Flip Tok community rules. */
+  flipRules: boolean;
+};
 
 /** The arcade columns of a `profiles` row. */
 export type ProfileRow = {
   full_name: string; handle: string | null; region: string; plan: string; created_at: string;
   credits: number; streak: number; last_check_in: string | null; spins_left: number;
-  pawn_cash: number; pawn_levels: Record<string, number>; owned: string[];
+  pawn_cash: number; pawn_levels: Record<string, number>; owned: string[]; deal_alerts?: boolean; flip_terms_at?: string | null;
 };
 
 // ───────────────────────────────────────────────────────────── formatting
@@ -92,18 +129,25 @@ const num = (v: unknown) => Number(v ?? 0);
 
 export const toDeal = (r: Row): Deal => ({
   id: r.id, name: r.name, source: r.source, category: r.category,
-  buy: num(r.buy_price), resale: num(r.resale_price), score: num(r.score), risk: r.risk,
+  buy: num(r.buy_price), resale: num(r.resale_price), score: num(r.score), badge: r.badge,
   img: image(r.image_key, r.image_url), imageKey: r.image_key ?? null, verdict: r.verdict ?? [],
+  marketplace: r.marketplace ?? 'eBay', listingUrl: r.listing_url ?? null, reason: r.reason ?? null,
+  estFees: r.est_fees == null ? num(r.resale_price) * DEFAULT_FEE_RATE : num(r.est_fees),
+  estShipping: r.est_shipping == null ? DEFAULT_SHIPPING : num(r.est_shipping),
 });
 
-export const toInv = (r: Row): InvItem => ({
-  id: r.id, name: r.name, sku: r.sku, buy: num(r.buy_price), list: num(r.list_price), status: r.status,
-  img: image(r.image_key, r.image_url), createdAt: r.created_at, soldAt: r.sold_at,
+/** `photoUrl` is a signed URL for a private storage photo, when the item has one. */
+export const toInv = (r: Row, photoUrl?: string | null): InvItem => ({
+  id: r.id, dealId: r.deal_id ?? null, name: r.name, sku: r.sku, category: r.category ?? '', condition: r.condition ?? '',
+  sizeSpec: r.size_spec ?? '', notes: r.notes ?? '', buy: num(r.buy_price), list: num(r.list_price), status: r.status,
+  soldPrice: r.sold_price == null ? null : num(r.sold_price),
+  img: photoUrl ? { uri: photoUrl } : image(r.image_key, r.image_url), photoPath: r.photo_path ?? null,
+  createdAt: r.created_at, soldAt: r.sold_at,
 });
 
 export const toFlip = (r: Row): Flip => ({
   id: r.id, initials: r.initials, name: r.author_name, handle: r.handle, bought: num(r.bought), sold: num(r.sold),
-  copy: r.copy, img: image(r.image_key, r.image_url), likes: r.likes, shares: r.shares,
+  copy: r.copy, img: image(r.image_key, r.image_url), likes: r.likes, shares: r.shares, userId: r.user_id ?? null,
 });
 
 export const toBoard = (r: Row): BoardEntry => ({
@@ -116,6 +160,7 @@ export const toTracked = (r: Row): Tracked => ({
 });
 export const toNotice = (r: Row): Notice => ({
   id: r.id, title: r.title, body: r.body, img: image(r.image_key), createdAt: r.created_at,
+  read: !!r.read, dealId: r.deal_id ?? null,
 });
 export const toStoreItem = (r: Row): StoreItem => ({ key: r.key, group: r.group_label, name: r.name, desc: r.description, cost: r.cost });
 export const toPuzzle = (r: Row): Puzzle => ({

@@ -17,7 +17,9 @@ export const supabase: SupabaseClient | null =
           storage: Platform.OS === 'web' && typeof window === 'undefined' ? undefined : AsyncStorage,
           autoRefreshToken: true,
           persistSession: true,
+          // Links back into the app (password reset, Google / Apple) are handled by the store.
           detectSessionInUrl: false,
+          flowType: 'pkce',
         },
       })
     : null;
@@ -28,4 +30,19 @@ if (supabase && Platform.OS !== 'web') {
     if (state === 'active') supabase.auth.startAutoRefresh();
     else supabase.auth.stopAutoRefresh();
   });
+}
+
+export type SocialProvider = 'google' | 'apple';
+
+/** Which social logins are switched on in the Supabase dashboard. */
+export async function enabledProviders(): Promise<Record<SocialProvider, boolean>> {
+  const none = { google: false, apple: false };
+  if (!url || !anonKey) return none;
+  try {
+    const res = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: anonKey } });
+    const body = await res.json();
+    return { google: !!body?.external?.google, apple: !!body?.external?.apple };
+  } catch {
+    return none;
+  }
 }

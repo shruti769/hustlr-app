@@ -1,12 +1,13 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { ART, CATS, INV_STATS, PLATFORMS, RISK, SHORTCUTS } from '../data';
-import { count, money, roi, signed, type InvStatus } from '../model';
+import { ART, BADGE, CATS, INV_STATS, PLATFORMS, SHORTCUTS, type Badge } from '../data';
+import { count, estProfit, invProfit, money, roi, signed, type InvStatus, type ReportReason } from '../model';
 import { LIVE, useHustlr } from '../store';
 import { A, C, G, L, bgImage, bric, card, hk, kicker, label9, mono, space } from '../theme';
+import { pickPhoto } from '../photos';
 import { EmptyNote, Field, Grid2, LabeledField, Photo, Press, PrimaryButton } from '../ui';
 
 const pad = { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 110 } as const;
@@ -52,9 +53,7 @@ export function Deals() {
           <Press key={d.id} onPress={() => openDeal(d.id)} style={[card(14), s.clip]} hover={{ borderColor: A(35) }}>
             <View style={{ height: 124 }}>
               <Photo src={d.img} style={StyleSheet.absoluteFill} />
-              <View style={[s.profitTag, { left: 10, top: 10 }]}>
-                <Text style={mono(12, { w: 700, lh: 1, c: C.ona })}>{signed(d.resale - d.buy)}</Text>
-              </View>
+              <DealBadge badge={d.badge} style={{ position: 'absolute', left: 10, top: 10 }} />
               <View style={s.scoreTag}>
                 <View style={s.dot6} />
                 <Text style={mono(12, { lh: 1, c: C.t1 })}>{d.score.toFixed(1)}</Text>
@@ -63,15 +62,16 @@ export function Deals() {
             <View style={{ padding: 14 }}>
               <View style={s.rowTop}>
                 <Text style={[hk(15, { w: 700, lh: 1, ls: -0.2, c: C.t1 }), { flexShrink: 1 }]}>{d.name}</Text>
-                <View style={[s.risk, { borderColor: RISK[d.risk] }]}>
-                  <Text style={mono(10, { lh: 15, c: RISK[d.risk] })}>{d.risk}</Text>
+                <View style={s.market}>
+                  <Text style={mono(10, { lh: 15, c: C.t2 })}>{d.marketplace}</Text>
                 </View>
               </View>
               <Text style={[mono(10, { lh: 1, c: C.t4 }), { paddingTop: 6 }]}>{d.source}</Text>
               <View style={s.dealFoot}>
                 <View style={{ flexDirection: 'row', gap: 18 }}>
                   <Stat label="BUY" value={money(d.buy)} />
-                  <Stat label="ROI" value={roi(d.buy, d.resale)} accent />
+                  <Stat label="EST. PROFIT" value={signed(Math.round(estProfit(d)))} accent />
+                  <Stat label="ROI" value={roi(d.buy, d.buy + estProfit(d))} />
                 </View>
                 <View style={s.view}>
                   <Text style={hk(13, { w: 700, c: C.ona })}>View →</Text>
@@ -81,6 +81,17 @@ export function Deals() {
           </Press>
         ))}
       </View>
+    </View>
+  );
+}
+
+const BADGE_INK: Record<Badge, string> = { STEAL: C.ona, CAUTION: '#2A1E04', RISK: C.white };
+
+/** STEAL / CAUTION / RISK chip, filled in the badge colour. */
+export function DealBadge({ badge, style }: { badge: Badge; style?: object }) {
+  return (
+    <View style={[s.badge, { backgroundColor: BADGE[badge] }, style]}>
+      <Text style={mono(11, { w: 700, ls: 0.5, lh: 1, c: BADGE_INK[badge] })}>{badge}</Text>
     </View>
   );
 }
@@ -104,30 +115,32 @@ export function AreaChart({ d }: { d: string }) {
   );
 }
 
-const FEE = 0.129;
-const SHIPPING = 15;
 const cents = (n: number) => n.toFixed(2);
 
 export function Detail() {
   const { deal: d, go } = useHustlr();
   if (!d) return <View style={pad}><EmptyNote text="This deal is no longer available." /></View>;
-  const fee = d.resale * FEE;
-  const net = d.resale - d.buy - fee - SHIPPING;
+  const net = estProfit(d);
+  const feePct = d.resale > 0 ? Math.round((d.estFees / d.resale) * 1000) / 10 : 0;
   const breakdown = [
     { label: 'Est. resale', value: money(d.resale), fg: C.t1 },
     { label: 'Buy price', value: '-' + money(d.buy).slice(1), fg: C.t1 },
-    { label: 'Platform fee (12.9%)', value: '-$' + cents(fee), fg: C.t1 },
-    { label: 'Shipping', value: '-$' + cents(SHIPPING), fg: C.t1 },
-    { label: 'Net profit', value: (net >= 0 ? '+$' : '-$') + cents(Math.abs(net)), fg: net >= 0 ? C.aink : C.neg },
+    { label: `Est. platform fee (${feePct}%)`, value: '-$' + cents(d.estFees), fg: C.t1 },
+    { label: 'Est. shipping', value: '-$' + cents(d.estShipping), fg: C.t1 },
+    { label: 'Est. net profit', value: (net >= 0 ? '+$' : '-$') + cents(Math.abs(net)), fg: net >= 0 ? C.aink : C.neg },
   ];
-  const profit = signed(d.resale - d.buy);
+  const profit = signed(Math.round(net));
+  const openListing = () => { if (d.listingUrl) Linking.openURL(d.listingUrl); };
   return (
     <View style={{ paddingBottom: 110 }}>
       <View style={{ height: 230 }}>
         <Photo src={d.img} style={StyleSheet.absoluteFill} />
         <View style={[StyleSheet.absoluteFill, bgImage(`linear-gradient(180deg, rgba(8,10,9,0) 40%, ${C.bg} 100%)`)]} />
-        <View style={[s.profitTag, { left: 14, bottom: 14, paddingVertical: 6, paddingHorizontal: 11, borderRadius: 7 }]}>
-          <Text style={mono(12, { w: 700, c: C.ona })}>{profit} PROFIT</Text>
+        <View style={{ position: 'absolute', left: 14, bottom: 14, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <DealBadge badge={d.badge} style={{ paddingVertical: 6, paddingHorizontal: 11, borderRadius: 7 }} />
+          <View style={s.marketTag}>
+            <Text style={mono(11, { w: 600, lh: 1, c: C.t1 })}>{d.marketplace}</Text>
+          </View>
         </View>
         <View style={{ position: 'absolute', right: 14, bottom: 14, alignItems: 'flex-end' }}>
           <Text style={bric(28, { lh: 1, c: C.t1 })}>{d.score.toFixed(1)}</Text>
@@ -138,11 +151,12 @@ export function Detail() {
         <View>
           <Text style={hk(20, { w: 700, ls: -0.3, c: C.t1 })}>{d.name}</Text>
           <Text style={[mono(10, { c: C.t4 }), { paddingTop: 7 }]}>{d.source}</Text>
+          {d.reason ? <Text style={[hk(13.5, { lh: 19, c: C.t2 }), { paddingTop: 10 }]}>{d.reason}</Text> : null}
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Box label="ASKING" value={money(d.buy)} />
           <Box label="RESALE" value={money(d.resale)} />
-          <Box label="PROFIT" value={profit} accent />
+          <Box label="EST. PROFIT" value={profit} accent />
         </View>
         <View style={[card(), { padding: 16 }]}>
           <View style={s.between}>
@@ -178,7 +192,20 @@ export function Detail() {
             ))}
           </View>
         </View>
-        <PrimaryButton label="Lock this deal" onPress={() => go('add')} />
+        {d.listingUrl ? (
+          <>
+            <PrimaryButton label={`View on ${d.marketplace} ↗`} onPress={openListing} />
+            <Press onPress={() => go('add')} style={s.secondary}>
+              <Text style={hk(14, { w: 700, c: C.aink })}>I bought it · Add to inventory</Text>
+            </Press>
+          </>
+        ) : (
+          <PrimaryButton label="Lock this deal" onPress={() => go('add')} />
+        )}
+        <Text style={[mono(10, { lh: 15, c: C.t5 }), { paddingTop: 2 }]}>
+          Profit is an estimate from recent sold prices, after fees and shipping.
+          {d.listingUrl ? ` You buy on ${d.marketplace}; HU$TLR may earn a commission from this link.` : ''}
+        </Text>
       </View>
     </View>
   );
@@ -206,7 +233,9 @@ export function Check({ mark, text, bg, fg, monoMark = true }: { mark: string; t
 }
 
 export function Home() {
-  const { go } = useHustlr();
+  const { set, go } = useHustlr();
+  const [link, setLink] = useState('');
+  const analyse = () => { set({ analyseUrl: link.trim() }); setLink(''); go('analyse'); };
   return (
     <View style={pad}>
       <View style={s.segment}>
@@ -222,10 +251,17 @@ export function Home() {
         <Text style={[hk(13.5, { lh: 1, c: C.t3 }), { paddingTop: 10 }]}>Paste any listing, get an instant AI verdict.</Text>
       </View>
       <View style={{ gap: 14, paddingTop: 20 }}>
-        <View style={[card(12), { padding: 14 }]}>
-          <Text style={hk(13.5, { c: C.t4 })}>https://facebook.com/marketplace/item/…</Text>
-        </View>
-        <PrimaryButton label="Analyse listing" onPress={() => go('analyse')} height={50} radius={12} size={15} />
+        <Field
+          value={link}
+          onChangeText={setLink}
+          placeholder="https://facebook.com/marketplace/item/…"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          onSubmitEditing={analyse}
+          style={{ height: undefined, paddingVertical: 14, borderColor: L(8), ...hk(13.5, { c: C.t1 }) }}
+        />
+        <PrimaryButton label="Analyse listing" onPress={analyse} height={50} radius={12} size={15} />
       </View>
       <Text style={[kicker, { paddingTop: 26, paddingBottom: 10 }]}>JUMP BACK IN</Text>
       <Grid2 gap={10}>
@@ -254,10 +290,39 @@ export function Avatar({ initials, size = 40, radius = 10, font = 12, border = A
   );
 }
 
+const REASONS: { key: ReportReason; label: string }[] = [
+  { key: 'spam', label: 'Spam' },
+  { key: 'scam', label: 'Scam' },
+  { key: 'offensive', label: 'Offensive' },
+  { key: 'fake', label: 'Fake flip' },
+];
+
 export function FlipTok() {
-  const { st } = useHustlr();
+  const { st, reportFlip, blockAuthor, deleteFlip } = useHustlr();
+  const [menu, setMenu] = useState<number | null>(null);
+  const [reporting, setReporting] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const report = async (id: number, reason: ReportReason) => {
+    setMenu(null);
+    setReporting(null);
+    const err = await reportFlip(id, reason);
+    setNotice(err ?? 'Thanks — we’ll review that post. It’s hidden for you now.');
+  };
+  const block = async (userId: string) => {
+    setMenu(null);
+    const err = await blockAuthor(userId);
+    setNotice(err ?? 'Blocked. You won’t see their posts.');
+  };
+
   return (
     <View style={[pad, { gap: 11 }]}>
+      {notice ? (
+        <Press onPress={() => setNotice(null)} style={[card(12, A(30)), { padding: 12 }]}>
+          <Text style={hk(13, { lh: 18, c: C.aink })}>{notice}</Text>
+        </Press>
+      ) : null}
+      {st.flips.length === 0 && <EmptyNote text="No flips yet. Sell something, then share the win from your inventory." />}
       {st.flips.map((f) => (
         <View key={f.id} style={[card(14), s.clip]}>
           <View style={s.flipHead}>
@@ -269,8 +334,44 @@ export function FlipTok() {
             <View style={s.flipProfit}>
               <Text style={mono(12, { w: 700, c: C.aink })}>{signed(f.sold - f.bought)}</Text>
             </View>
+            <Press
+              onPress={() => { setMenu(menu === f.id ? null : f.id); setReporting(null); }}
+              style={s.more}
+              hover={{ borderColor: L(20) }}
+              accessibilityLabel="Post options">
+              <Text style={mono(13, { w: 700, lh: 1, c: C.t3 })}>⋯</Text>
+            </Press>
           </View>
-          <Photo src={f.img} style={{ height: 210 }} />
+          {menu === f.id && (
+            <View style={s.flipMenu}>
+              {f.userId && f.userId === st.userId ? (
+                <Press onPress={() => { setMenu(null); deleteFlip(f.id); }} style={s.menuChip}>
+                  <Text style={hk(13, { w: 600, c: C.neg })}>Delete my post</Text>
+                </Press>
+              ) : reporting === f.id ? (
+                <>
+                  <Text style={[label9, { width: '100%' }]}>WHAT’S WRONG?</Text>
+                  {REASONS.map((r) => (
+                    <Press key={r.key} onPress={() => report(f.id, r.key)} style={s.menuChip} hover={{ borderColor: A(40) }}>
+                      <Text style={hk(13, { w: 600, c: C.t1 })}>{r.label}</Text>
+                    </Press>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <Press onPress={() => setReporting(f.id)} style={s.menuChip} hover={{ borderColor: A(40) }}>
+                    <Text style={hk(13, { w: 600, c: C.t1 })}>Report post</Text>
+                  </Press>
+                  {f.userId ? (
+                    <Press onPress={() => block(f.userId!)} style={s.menuChip} hover={{ borderColor: 'rgba(255,92,92,0.5)' }}>
+                      <Text style={hk(13, { w: 600, c: C.neg })}>Block {f.handle}</Text>
+                    </Press>
+                  ) : null}
+                </>
+              )}
+            </View>
+          )}
+          {f.img ? <Photo src={f.img} style={{ height: 210 }} /> : null}
           <View style={{ padding: 14 }}>
             <Text style={hk(13.5, { lh: 20, c: C.t2 })}>{f.copy}</Text>
             <View style={{ flexDirection: 'row', gap: 18, paddingTop: 14 }}>
@@ -290,20 +391,20 @@ export function FlipTok() {
   );
 }
 
-const STATUS: Record<InvStatus, { bg: string; fg: string }> = {
+export const STATUS: Record<InvStatus, { bg: string; fg: string }> = {
   Listed: { bg: A(14), fg: C.aink },
   Sold: { bg: L(6), fg: C.t3 },
   Sourcing: { bg: G(14), fg: C.goldink },
 };
 
 export function Inventory() {
-  const { st } = useHustlr();
+  const { st, openItem } = useHustlr();
   const items = st.inventory;
   const stats = LIVE
     ? [
         { label: 'COST', value: money(items.reduce((n, i) => n + i.buy, 0)), fg: C.t1 },
         { label: 'LISTED', value: money(items.reduce((n, i) => n + i.list, 0)), fg: C.t1 },
-        { label: 'PROFIT', value: signed(items.reduce((n, i) => n + i.list - i.buy, 0)), fg: C.aink },
+        { label: 'PROFIT', value: signed(items.reduce((n, i) => n + invProfit(i), 0)), fg: C.aink },
       ]
     : INV_STATS;
   return (
@@ -318,19 +419,19 @@ export function Inventory() {
       </View>
       {items.length === 0 && <EmptyNote text="No items yet — tap + Add to log your first flip." />}
       {items.map((i) => (
-        <View key={i.id} style={[card(), s.itemRow]}>
+        <Press key={i.id} onPress={() => openItem(i.id)} style={[card(), s.itemRow]} hover={{ borderColor: A(35) }}>
           <Photo src={i.img} style={s.thumb54} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text numberOfLines={1} style={hk(13.5, { w: 600, c: C.t1 })}>{i.name}</Text>
             <Text style={[mono(10, { c: C.t4 }), { paddingTop: 5 }]}>{i.sku}</Text>
           </View>
           <View style={{ alignItems: 'flex-end', gap: 6 }}>
-            <Text style={mono(12, { w: 600, c: C.aink })}>{signed(i.list - i.buy)}</Text>
+            <Text style={mono(12, { w: 600, c: invProfit(i) >= 0 ? C.aink : C.neg })}>{signed(invProfit(i))}</Text>
             <View style={[s.status, { backgroundColor: STATUS[i.status].bg }]}>
               <Text style={mono(9, { ls: 0.5, c: STATUS[i.status].fg })}>{i.status}</Text>
             </View>
           </View>
-        </View>
+        </Press>
       ))}
     </View>
   );
@@ -350,6 +451,7 @@ export function AddListing() {
   const [size, setSize] = useState(deal?.category === 'Sneakers' ? 'US 10' : '');
   const [list, setList] = useState(deal ? String(deal.resale) : '');
   const [platforms, setPlatforms] = useState(['eBay']);
+  const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -372,7 +474,7 @@ export function AddListing() {
     setError(null);
     const err = await addInventory({
       dealId: deal?.id ?? null, name, category, condition, sizeSpec: size,
-      buy: buyN, list: listN, platforms, status: 'Listed',
+      buy: buyN, list: listN, platforms, status: 'Listed', photoUri: photo,
     });
     setSaving(false);
     if (err) setError(err);
@@ -384,10 +486,13 @@ export function AddListing() {
       <View>
         <Text style={kicker}>PHOTOS</Text>
         <View style={{ flexDirection: 'row', gap: 10, paddingTop: 11, alignItems: 'flex-start' }}>
-          <View style={[s.slot, { borderStyle: 'dashed', borderColor: A(40) }]}>
-            <Text style={mono(10, { ls: 1, c: C.aink })}>ADD</Text>
-          </View>
-          <Image source={deal?.img ?? ART.addPhoto} contentFit="cover" style={{ width: 84, height: 84, borderRadius: 12 }} />
+          <Press
+            onPress={async () => { const uri = await pickPhoto(); if (uri) setPhoto(uri); }}
+            style={[s.slot, { borderStyle: 'dashed', borderColor: A(40) }]}
+            hover={{ backgroundColor: A(8) }}>
+            <Text style={mono(10, { ls: 1, c: C.aink })}>{photo ? 'CHANGE' : 'ADD'}</Text>
+          </Press>
+          <Image source={photo ? { uri: photo } : deal?.img ?? ART.addPhoto} contentFit="cover" style={{ width: 84, height: 84, borderRadius: 12 }} />
           <View style={s.slot}><Text style={mono(10, { ls: 1, c: C.t5 })}>PHOTO 2</Text></View>
           <View style={s.slot}><Text style={mono(10, { ls: 1, c: C.t5 })}>PHOTO 3</Text></View>
         </View>
@@ -474,7 +579,13 @@ const s = StyleSheet.create({
   },
   dot6: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.aink },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
-  risk: { paddingVertical: 2, paddingHorizontal: 7, borderRadius: 5, borderWidth: 1 },
+  market: { paddingVertical: 2, paddingHorizontal: 7, borderRadius: 5, borderWidth: 1, borderColor: L(14) },
+  badge: { paddingVertical: 5, paddingHorizontal: 9, borderRadius: 6 },
+  marketTag: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 7, backgroundColor: 'rgba(8,10,9,0.78)', borderWidth: 1, borderColor: L(10) },
+  secondary: {
+    height: 50, borderRadius: 13, backgroundColor: A(12), borderWidth: 1, borderColor: A(30),
+    alignItems: 'center', justifyContent: 'center',
+  },
   dealFoot: { flexDirection: 'row', paddingTop: 13, justifyContent: 'space-between', alignItems: 'center' },
   view: { width: 78, height: 37, borderRadius: 9, backgroundColor: C.aink, alignItems: 'center', justifyContent: 'center' },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -488,6 +599,9 @@ const s = StyleSheet.create({
   segItem: { flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   flipHead: { flexDirection: 'row', gap: 11, alignItems: 'center', paddingVertical: 13, paddingHorizontal: 14 },
   flipProfit: { paddingVertical: 5, paddingHorizontal: 10, borderRadius: 6, backgroundColor: A(14) },
+  more: { width: 30, height: 30, borderRadius: 9, borderWidth: 1, borderColor: L(10), alignItems: 'center', justifyContent: 'center' },
+  flipMenu: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 14, paddingBottom: 13 },
+  menuChip: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 9, borderWidth: 1, borderColor: L(10), backgroundColor: C.s2 },
   itemRow: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12 },
   thumb54: { width: 54, height: 54, borderRadius: 10 },
   status: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 5 },

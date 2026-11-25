@@ -28,24 +28,25 @@ export const ART = {
 
 export type Img = ImageSourcePropType | null;
 
-export type Risk = 'Low' | 'Med' | 'High';
+/** The blueprint's deal badge: big margin, check it first, likely loss. */
+export type Badge = 'STEAL' | 'CAUTION' | 'RISK';
 
-export const RISK: Record<Risk, string> = { Low: C.a, Med: C.gold, High: C.neg };
+export const BADGE: Record<Badge, string> = { STEAL: C.a, CAUTION: C.gold, RISK: C.neg };
 
 export const CATS = ['All', 'Sneakers', 'Electronics', 'Collectibles', 'Home', 'Toys'];
 
 export const TAB_ROOTS = ['home', 'deals', 'fliptok', 'inventory', 'profile'] as const;
 
 export type Screen =
-  | 'splash' | 'login' | 'signup' | 'reset'
-  | 'home' | 'deals' | 'detail' | 'fliptok' | 'inventory' | 'add' | 'profile'
+  | 'splash' | 'login' | 'signup' | 'reset' | 'newpass'
+  | 'home' | 'deals' | 'detail' | 'fliptok' | 'inventory' | 'add' | 'item' | 'profile' | 'settings'
   | 'dashboard' | 'calculator' | 'tracker' | 'trends' | 'analyse' | 'leaderboard'
   | 'watchlist' | 'prizes' | 'plans' | 'notifications'
   | 'arcade' | 'priceit' | 'pawn' | 'spin' | 'store';
 
 export const TITLES: Partial<Record<Screen, string>> = {
   home: 'HUSTLR', deals: 'Hot Deals', detail: 'Deal Detail', fliptok: 'Flip Tok',
-  inventory: 'Inventory', add: 'Add Listing', profile: 'My Profile', dashboard: 'Dashboard',
+  inventory: 'Inventory', add: 'Add Listing', item: 'Item', profile: 'My Profile', settings: 'Settings', dashboard: 'Dashboard',
   calculator: 'Calculator', tracker: 'Price Tracker', trends: 'Market Trends',
   analyse: 'Analyse Listing', leaderboard: 'Leaderboard', watchlist: 'Watchlist',
   prizes: 'Prize Draw', plans: 'Plans', notifications: 'Notifications',
@@ -57,6 +58,7 @@ export const HEADER_ACTIONS: Partial<Record<Screen, { label: string; to: Screen 
   tracker: { label: '+ Track', to: 'tracker' },
   add: { label: 'AI Fill', to: 'add' },
   fliptok: { label: 'Leaderboard', to: 'leaderboard' },
+  profile: { label: 'Settings', to: 'settings' },
 };
 
 /** Flip the prototype's `showPrizeDraw` switch to reveal the live prize draw. */

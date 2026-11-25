@@ -1,6 +1,12 @@
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 
-import { supabase } from '@/lib/supabase';
+import { supabase, type SocialProvider } from '@/lib/supabase';
+
+import { buyPlan, restorePlans, startBilling, stopBilling, type PaidPlan } from './billing';
+import { onPushTap, registerForPush, unregisterPush } from './push';
 
 import { PUZZLE, TAB_ROOTS, UPGRADE_DEFS, WHEEL, type CalcKey, type Screen } from './data';
 import {
@@ -8,8 +14,8 @@ import {
   DEMO_TRACKED, DEMO_TRENDS,
 } from './demo';
 import {
-  initialsOf, toBoard, toDeal, toFlip, toInv, toNotice, toPuzzle, toStoreItem, toTracked, toTrend,
-  type BoardEntry, type Deal, type Flip, type InvItem, type InvStatus, type Notice, type Profile, type ProfileRow,
+  initialsOf, invProfit, toBoard, toDeal as dealFromRow, toDeal, toFlip, toInv, toNotice, toPuzzle, toStoreItem, toTracked, toTrend,
+  type Analysis, type BoardEntry, type ReportReason, type Deal, type Flip, type InvItem, type InvStatus, type Notice, type Profile, type ProfileRow,
   type Puzzle, type StoreItem, type Tracked, type Trend,
 } from './model';
 
@@ -41,6 +47,14 @@ type State = {
   userId: string | null;
   /** Email typed on one auth screen, carried to the next. */
   authEmail: string;
+  /** Add form open on the Price Tracker. */
+  trackForm: boolean;
+  /** Link typed on Home, carried to the Analyser. */
+  analyseUrl: string;
+  /** One-off message for the login screen (expired link, account deleted…). */
+  authNotice: string;
+  /** Inventory item open on the item screen. */
+  itemId: number | null;
   /** Remote data: `ready` once loaded, `error` when the last load failed. */
   dataStatus: 'idle' | 'loading' | 'ready' | 'error';
   profile: Profile;
@@ -56,7 +70,10 @@ type State = {
   puzzle: Puzzle | null;
 };
 
-const EMPTY_PROFILE: Profile = { name: '', handle: '', email: '', region: '', plan: 'scout', memberSince: new Date().toISOString() };
+const EMPTY_PROFILE: Profile = {
+  name: '', handle: '', email: '', region: '', plan: 'scout', memberSince: new Date().toISOString(), dealAlerts: true,
+  flipRules: false,
+};
 
 const DEMO_DATA = {
   profile: DEMO_PROFILE, deals: DEMO_DEALS, inventory: DEMO_INVENTORY, watchIds: [1, 2, 3, 4], flips: DEMO_FLIPS,
@@ -79,6 +96,10 @@ const INITIAL: State = {
   owned: [],
   userId: null,
   authEmail: '',
+  itemId: null,
+  trackForm: false,
+  analyseUrl: '',
+  authNotice: '',
   dataStatus: LIVE ? 'idle' : 'ready',
   ...(LIVE ? EMPTY_DATA : DEMO_DATA),
 };
@@ -117,6 +138,8 @@ function fromProfileRow(r: ProfileRow, email: string): Partial<State> {
       region: r.region,
       plan: r.plan,
       memberSince: r.created_at,
+      dealAlerts: r.deal_alerts ?? true,
+      flipRules: !!r.flip_terms_at,
     },
   };
 }
@@ -139,7 +162,61 @@ const friendly = (msg: string) =>
 export type AddDraft = {
   dealId: number | null; name: string; category: string; condition: string; sizeSpec: string;
   buy: number; list: number; platforms: string[]; status: InvStatus;
+  /** Local image picked on the device, uploaded after the item is saved. */
+  photoUri?: string | null;
 };
+
+export type InvPatch = Partial<Pick<InvItem,
+  'name' | 'category' | 'condition' | 'sizeSpec' | 'notes' | 'buy' | 'list' | 'status' | 'soldPrice'>>;
+
+const PHOTO_BUCKET = 'inventory-photos';
+
+/** Deep link back into the app, e.g. `hustlrapp://?flow=reset` (or the dev / web equivalent). */
+const appLink = (flow: 'reset' | 'oauth') => Linking.createURL('/', { queryParams: { flow } });
+
+/** Query and fragment parameters of a link, merged. */
+function linkParams(url: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const parts = url.split(/[?#]/).slice(1);
+  for (const part of parts) {
+    for (const pair of part.split('&')) {
+      const [k, v = ''] = pair.split('=');
+      if (k) out[decodeURIComponent(k)] = decodeURIComponent(v);
+    }
+  }
+  return out;
+}
+
+/** Uploads a picked image to `<user>/<item>-<time>.<ext>` and returns its path and a signed URL. */
+async function uploadPhoto(userId: string, itemId: number, uri: string) {
+  if (!supabase) return null;
+  try {
+    const res = await fetch(uri);
+    const blob = await res.blob();
+    const type = blob.type || 'image/jpeg';
+    const ext = type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    const path = `${userId}/${itemId}-${Date.now()}.${ext}`;
+    const body = await new Response(blob).arrayBuffer();
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, body, { contentType: type, upsert: false });
+    if (error) throw error;
+    const { data } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(path, 60 * 60 * 24 * 7);
+    return { path, url: data?.signedUrl ?? null };
+  } catch (e) {
+    console.warn('[hustlr] photo upload failed', e);
+    return null;
+  }
+}
+
+/** Maps inventory rows, swapping stored photo paths for signed URLs. */
+async function withPhotos(rows: any[]): Promise<InvItem[]> {
+  const paths = rows.map((r) => r.photo_path).filter(Boolean) as string[];
+  const urls: Record<string, string> = {};
+  if (supabase && paths.length) {
+    const { data } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, 60 * 60 * 24 * 7);
+    for (const u of data ?? []) if (u.path && u.signedUrl) urls[u.path] = u.signedUrl;
+  }
+  return rows.map((r) => toInv(r, r.photo_path ? urls[r.photo_path] : null));
+}
 
 function useHustlrState() {
   const [st, setSt] = useState(INITIAL);
@@ -174,10 +251,10 @@ function useHustlrState() {
     try {
       const [profile, deals, inventory, watch, flips, board, trends, tracked, notices, store, puzzle] = await Promise.all([
         rpc<ProfileRow>('arcade_state'),
-        db.from('deals').select('*').order('id').then(must),
+        db.from('deals').select('*').order('score', { ascending: false }).order('id').then(must),
         db.from('inventory_items').select('*').order('created_at', { ascending: false }).then(must),
         db.from('watchlist').select('deal_id').order('created_at').then(must),
-        db.from('flips').select('*').order('id').then(must),
+        db.from('flips').select('*').order('created_at', { ascending: false }).then(must),
         db.from('leaderboard_entries').select('*').order('profit', { ascending: false }).then(must),
         db.from('market_trends').select('*').order('sort').then(must),
         db.from('tracked_items').select('*').order('id').then(must),
@@ -192,7 +269,7 @@ function useHustlrState() {
         ...fromProfileRow(profile, email),
         deals: dealList,
         dealId: dealList[0]?.id ?? 0,
-        inventory: (inventory as any[]).map(toInv),
+        inventory: await withPhotos(inventory as any[]),
         watchIds: (watch as any[]).map((w) => w.deal_id),
         flips: (flips as any[]).map(toFlip),
         board: (board as any[]).map(toBoard),
@@ -227,6 +304,37 @@ function useHustlrState() {
     });
     return () => data.subscription.unsubscribe();
   }, [set, loadAll]);
+
+  // ──────────────────────────────────────────── push, live updates
+
+  const pushToken = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!LIVE || !st.userId || st.dataStatus !== 'ready') return;
+    startBilling(st.userId).catch((e) => console.warn('[hustlr] billing setup failed', e));
+    if (!pushToken.current) registerForPush().then((t) => { pushToken.current = t; });
+  }, [st.userId, st.dataStatus]);
+
+  // New and re-scored deals, and this user's notifications, arrive without a refresh.
+  useEffect(() => {
+    if (!supabase || !st.userId) return;
+    const db = supabase;
+    const channel = db.channel(`hustlr-${st.userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, (payload) => {
+        const row = payload.new as Record<string, any>;
+        if (!row?.id) return;
+        set((s) => {
+          const rest = s.deals.filter((d) => d.id !== row.id);
+          if (!row.is_active) return { deals: rest };
+          return { deals: [...rest, dealFromRow(row)].sort((a, b) => b.score - a.score || a.id - b.id) };
+        });
+      })
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${st.userId}` },
+        (payload) => set((s) => ({ notices: [toNotice(payload.new), ...s.notices.filter((n) => n.id !== payload.new.id)] })))
+      .subscribe();
+    return () => { db.removeChannel(channel); };
+  }, [st.userId, set]);
 
   // ────────────────────────────────────────────────────────────── auth
 
@@ -282,15 +390,105 @@ function useHustlrState() {
 
   const resetPassword = useCallback(async (email: string): Promise<{ error?: string; info?: string }> => {
     if (!supabase) return { info: 'Reset link sent — check your inbox.' };
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: appLink('reset') });
     if (error) return { error: friendly(error.message) };
     return { info: 'Reset link sent — check your inbox.' };
   }, []);
 
   const goLogin = useCallback(() => set({ screen: 'login', stack: [] }), [set]);
 
+  /**
+   * Links back into the app carry a one-time `code` (PKCE). A `flow=reset`
+   * link opens the new-password screen; `flow=oauth` finishes Google / Apple.
+   */
+  const handleAuthLink = useCallback(async (url: string | null) => {
+    if (!supabase || !url) return false;
+    const params = linkParams(url);
+    if (!params.flow && !params.code && !params.error_description) return false;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.history.replaceState(null, '', '/');
+    if (params.error_description) {
+      set({ screen: 'login', stack: [], authNotice: params.error_description.replace(/\+/g, ' ') });
+      return true;
+    }
+    if (!params.code) return false;
+    const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
+    if (error || !data.user) {
+      set({ screen: 'login', stack: [], authNotice: 'That link has expired. Request a new one.' });
+      return true;
+    }
+    if (params.flow === 'reset') {
+      set({ userId: data.user.id, screen: 'newpass', stack: [] });
+      return true;
+    }
+    await loadAll(data.user.id, data.user.email ?? '');
+    set({ screen: 'deals', tab: 'deals', stack: [] });
+    return true;
+  }, [set, loadAll]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    Linking.getInitialURL().then(handleAuthLink);
+    const sub = Linking.addEventListener('url', ({ url }) => { handleAuthLink(url); });
+    return () => sub.remove();
+  }, [handleAuthLink]);
+
+  /** Google / Apple sign-in through the provider's own page. */
+  const signInWith = useCallback(async (provider: SocialProvider): Promise<string | null> => {
+    if (!supabase) return null;
+    const redirectTo = appLink('oauth');
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider, options: { redirectTo, skipBrowserRedirect: true },
+    });
+    if (error || !data.url) return friendly(error?.message ?? 'Could not start sign-in.');
+    if (Platform.OS === 'web') {
+      window.location.assign(data.url);
+      return null;
+    }
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    if (result.type === 'success') await handleAuthLink(result.url);
+    return null;
+  }, [handleAuthLink]);
+
+  /** Sets a new password — after a reset link, or from Settings. */
+  const setNewPassword = useCallback(async (password: string): Promise<string | null> => {
+    if (!supabase) return null;
+    const { data, error } = await supabase.auth.updateUser({ password });
+    if (error) return friendly(error.message);
+    if (ref.current.screen === 'newpass') {
+      await loadAll(data.user.id, data.user.email ?? '');
+      set({ screen: 'deals', tab: 'deals', stack: [] });
+    }
+    return null;
+  }, [set, loadAll]);
+
+  const updateProfile = useCallback(async (patch: { name: string; region: string }): Promise<string | null> => {
+    const name = patch.name.trim();
+    if (!name) return 'Add your name.';
+    set((s) => ({ profile: { ...s.profile, name, region: patch.region.trim() } }));
+    if (!supabase) return null;
+    const { error } = await supabase.from('profiles')
+      .update({ full_name: name, region: patch.region.trim() })
+      .eq('id', ref.current.userId!);
+    return error ? friendly(error.message) : null;
+  }, [set]);
+
+  /** Permanently removes the account, its photos and all its data. */
+  const deleteAccount = useCallback(async (): Promise<string | null> => {
+    if (!supabase) { set({ screen: 'login', stack: [] }); return null; }
+    const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+    if (error) return "Couldn't delete your account right now. Try again in a moment.";
+    await supabase.auth.signOut({ scope: 'local' });
+    set({ ...EMPTY_DATA, userId: null, dataStatus: 'idle', screen: 'login', stack: [], authNotice: 'Your account has been deleted.' });
+    return null;
+  }, [set]);
+
   const signOut = useCallback(async () => {
-    if (supabase) await supabase.auth.signOut();
+    if (supabase) {
+      await unregisterPush(pushToken.current);
+      pushToken.current = null;
+      await stopBilling();
+      await supabase.auth.signOut();
+    }
     goLogin();
   }, [goLogin]);
 
@@ -479,7 +677,9 @@ function useHustlrState() {
     const deal = ref.current.deals.find((x) => x.id === d.dealId);
     if (!supabase) {
       const item: InvItem = {
-        id: Date.now(), name: d.name, sku, buy: d.buy, list: d.list, status: d.status, img: deal?.img ?? null,
+        id: Date.now(), dealId: d.dealId, name: d.name, sku, category: d.category, condition: d.condition,
+        sizeSpec: d.sizeSpec, notes: '', buy: d.buy, list: d.list, status: d.status, soldPrice: null,
+        img: d.photoUri ? { uri: d.photoUri } : deal?.img ?? null, photoPath: null,
         createdAt: new Date().toISOString(), soldAt: null,
       };
       set((s) => ({ inventory: [item, ...s.inventory] }));
@@ -490,9 +690,194 @@ function useHustlrState() {
       buy_price: d.buy, list_price: d.list, status: d.status, platforms: d.platforms,
       image_key: deal?.imageKey ?? null,
     }).select().single();
-    if (error) return error.message;
-    set((s) => ({ inventory: [toInv(data), ...s.inventory] }));
+    if (error) return friendly(error.message);
+    let row = data;
+    let photoUrl: string | null = null;
+    if (d.photoUri) {
+      const up = await uploadPhoto(ref.current.userId!, data.id, d.photoUri);
+      if (up) {
+        const { data: withPhoto } = await supabase.from('inventory_items')
+          .update({ photo_path: up.path }).eq('id', data.id).select().single();
+        if (withPhoto) { row = withPhoto; photoUrl = up.url; }
+      }
+    }
+    set((s) => ({ inventory: [toInv(row, photoUrl), ...s.inventory] }));
     return null;
+  }, [set]);
+
+  const openItem = useCallback((id: number) => { set({ itemId: id }); go('item'); }, [set, go]);
+
+  /** Edits an item; marking it Sold records the sale price (defaults to the listing price). */
+  const updateInventory = useCallback(async (id: number, patch: InvPatch): Promise<string | null> => {
+    const before = ref.current.inventory.find((i) => i.id === id);
+    if (!before) return 'Item not found.';
+    const next: InvItem = { ...before, ...patch };
+    if (next.status === 'Sold') {
+      next.soldPrice = patch.soldPrice ?? before.soldPrice ?? next.list;
+      next.soldAt = before.soldAt ?? new Date().toISOString();
+    } else {
+      next.soldPrice = null;
+      next.soldAt = null;
+    }
+    set((s) => ({ inventory: s.inventory.map((i) => (i.id === id ? next : i)) }));
+    if (!supabase) return null;
+    const { error } = await supabase.from('inventory_items').update({
+      name: next.name, category: next.category, condition: next.condition, size_spec: next.sizeSpec, notes: next.notes,
+      buy_price: next.buy, list_price: next.list, status: next.status, sold_price: next.soldPrice,
+    }).eq('id', id);
+    if (error) {
+      set((s) => ({ inventory: s.inventory.map((i) => (i.id === id ? before : i)) }));
+      return friendly(error.message);
+    }
+    return null;
+  }, [set]);
+
+  const deleteInventory = useCallback(async (id: number): Promise<string | null> => {
+    const before = ref.current.inventory;
+    const item = before.find((i) => i.id === id);
+    set((s) => ({ inventory: s.inventory.filter((i) => i.id !== id) }));
+    if (!supabase) return null;
+    const { error } = await supabase.from('inventory_items').delete().eq('id', id);
+    if (error) {
+      set({ inventory: before });
+      return friendly(error.message);
+    }
+    if (item?.photoPath) await supabase.storage.from(PHOTO_BUCKET).remove([item.photoPath]);
+    return null;
+  }, [set]);
+
+  /** Replaces an item's photo with one picked on the device. */
+  const setInventoryPhoto = useCallback(async (id: number, uri: string): Promise<string | null> => {
+    const item = ref.current.inventory.find((i) => i.id === id);
+    if (!item) return 'Item not found.';
+    if (!supabase) {
+      set((s) => ({ inventory: s.inventory.map((i) => (i.id === id ? { ...i, img: { uri } } : i)) }));
+      return null;
+    }
+    const up = await uploadPhoto(ref.current.userId!, id, uri);
+    if (!up) return "Couldn't upload the photo. Try again.";
+    const { error } = await supabase.from('inventory_items').update({ photo_path: up.path }).eq('id', id);
+    if (error) return friendly(error.message);
+    if (item.photoPath) await supabase.storage.from(PHOTO_BUCKET).remove([item.photoPath]);
+    set((s) => ({
+      inventory: s.inventory.map((i) => (i.id === id ? { ...i, photoPath: up.path, img: up.url ? { uri: up.url } : i.img } : i)),
+    }));
+    return null;
+  }, [set]);
+
+  /** Scores a shared listing link (or a typed title and price) on the server. */
+  const analyseListing = useCallback(async (input: { url?: string; title?: string; price?: number }):
+    Promise<{ result?: Analysis; error?: string }> => {
+    if (!supabase) return { error: 'Connect Supabase to analyse real listings.' };
+    const { data, error } = await supabase.functions.invoke('analyse-listing', { body: input });
+    if (error) {
+      let message = "Couldn't analyse that listing. Try again.";
+      try {
+        const body = await (error as { context?: Response }).context?.json();
+        if (body?.error) message = body.error;
+      } catch {
+        // keep the generic message
+      }
+      return { error: message };
+    }
+    return { result: data as Analysis };
+  }, []);
+
+  /** Marks every notification read — called when the list is opened. */
+  const markNoticesRead = useCallback(async () => {
+    if (!ref.current.notices.some((n) => !n.read)) return;
+    set((s) => ({ notices: s.notices.map((n) => ({ ...n, read: true })) }));
+    if (supabase) await supabase.from('notifications').update({ read: true }).eq('read', false);
+  }, [set]);
+
+  const setDealAlerts = useCallback(async (on: boolean): Promise<string | null> => {
+    set((s) => ({ profile: { ...s.profile, dealAlerts: on } }));
+    if (!supabase) return null;
+    const { error } = await supabase.from('profiles').update({ deal_alerts: on }).eq('id', ref.current.userId!);
+    if (error) {
+      set((s) => ({ profile: { ...s.profile, dealAlerts: !on } }));
+      return friendly(error.message);
+    }
+    return null;
+  }, [set]);
+
+  /** Watches an item's resale price; the tracker job refreshes it every 30 minutes. */
+  const addTracked = useCallback(async (name: string, target: number, now = 0): Promise<string | null> => {
+    if (!name.trim()) return 'Name the item to track.';
+    if (!(target > 0)) return 'Set the price you want to sell at.';
+    if (!supabase) {
+      set((s) => ({ tracked: [...s.tracked, { id: Date.now(), name: name.trim(), now, target, change: 0 }], trackForm: false }));
+      return null;
+    }
+    const { data, error } = await supabase.from('tracked_items')
+      .insert({ name: name.trim(), target_price: target, now_price: now }).select().single();
+    if (error) return friendly(error.message);
+    set((s) => ({ tracked: [...s.tracked, toTracked(data)], trackForm: false }));
+    return null;
+  }, [set]);
+
+  const removeTracked = useCallback(async (id: number) => {
+    const before = ref.current.tracked;
+    set((s) => ({ tracked: s.tracked.filter((t) => t.id !== id) }));
+    if (!supabase) return;
+    const { error } = await supabase.from('tracked_items').delete().eq('id', id);
+    if (error) set({ tracked: before });
+  }, [set]);
+
+  /** Buys a plan in the App Store / Play Store; the server learns of it from RevenueCat. */
+  const upgradePlan = useCallback(async (plan: PaidPlan): Promise<{ error?: string; info?: string }> => {
+    if (!LIVE) return { info: 'Connect Supabase and RevenueCat to sell plans.' };
+    const res = await buyPlan(plan);
+    if (res.cancelled) return {};
+    if (res.error) return { error: res.error };
+    if (res.plan) set((s) => ({ profile: { ...s.profile, plan: res.plan! } }));
+    return { info: `You're on ${plan === 'mogul' ? 'Mogul' : 'Hustler'} — welcome aboard.` };
+  }, [set]);
+
+  const restorePurchases = useCallback(async (): Promise<{ error?: string; info?: string }> => {
+    const res = await restorePlans();
+    if (res.error) return { error: res.error };
+    if (res.plan) set((s) => ({ profile: { ...s.profile, plan: res.plan! } }));
+    return { info: res.plan === 'scout' ? 'No active subscription found.' : 'Purchases restored.' };
+  }, [set]);
+
+  const acceptFlipRules = useCallback(async (): Promise<string | null> => {
+    set((s) => ({ profile: { ...s.profile, flipRules: true } }));
+    if (!supabase) return null;
+    const { error } = await supabase.from('profiles').update({ flip_terms_at: new Date().toISOString() }).eq('id', ref.current.userId!);
+    return error ? friendly(error.message) : null;
+  }, [set]);
+
+  /** Shares a sold flip to the Flip Tok feed. Author details come from the profile, server-side. */
+  const postFlip = useCallback(async (f: { bought: number; sold: number; copy: string; imageKey: string | null }): Promise<string | null> => {
+    if (!supabase) return 'Connect Supabase to post on Flip Tok.';
+    const { data, error } = await supabase.from('flips').insert({
+      bought: f.bought, sold: f.sold, copy: f.copy.trim(), image_key: f.imageKey,
+      author_name: '', handle: '', initials: '',
+    }).select().single();
+    if (error) return friendly(error.message);
+    set((s) => ({ flips: [toFlip(data), ...s.flips] }));
+    return null;
+  }, [set]);
+
+  /** Reports a post; it disappears for the reporter straight away. */
+  const reportFlip = useCallback(async (id: number, reason: ReportReason): Promise<string | null> => {
+    set((s) => ({ flips: s.flips.filter((f) => f.id !== id) }));
+    if (!supabase) return null;
+    const { error } = await supabase.from('flip_reports').insert({ flip_id: id, reason });
+    return error && error.code !== '23505' ? friendly(error.message) : null;
+  }, [set]);
+
+  const blockAuthor = useCallback(async (userId: string): Promise<string | null> => {
+    set((s) => ({ flips: s.flips.filter((f) => f.userId !== userId) }));
+    if (!supabase) return null;
+    const { error } = await supabase.from('blocked_users').insert({ blocked_id: userId });
+    return error && error.code !== '23505' ? friendly(error.message) : null;
+  }, [set]);
+
+  const deleteFlip = useCallback(async (id: number) => {
+    set((s) => ({ flips: s.flips.filter((f) => f.id !== id) }));
+    if (supabase) await supabase.from('flips').delete().eq('id', id);
   }, [set]);
 
   /** Re-fetch everything for the signed-in user. */
@@ -504,7 +889,11 @@ function useHustlrState() {
 
   const actions = useMemo(() => ({
     set, go, back, reload, enter, goLogin, signIn, signUp, resetPassword, signOut,
-    spin, checkIn, submitGuess, buyUpgrade, cashOut, buyItem, toggleWatch, addInventory,
+    signInWith, setNewPassword, updateProfile, deleteAccount,
+    spin, checkIn, submitGuess, buyUpgrade, cashOut, buyItem, toggleWatch,
+    addInventory, openItem, updateInventory, deleteInventory, setInventoryPhoto, analyseListing,
+    markNoticesRead, setDealAlerts, addTracked, removeTracked,
+    upgradePlan, restorePurchases, acceptFlipRules, postFlip, reportFlip, blockAuthor, deleteFlip,
     openDeal: (id: number) => { set({ dealId: id }); go('detail'); },
     openFeatured: async () => {
       const s = ref.current;
@@ -516,20 +905,35 @@ function useHustlrState() {
       pawnPending.current += click;
       set((s) => ({ pawnCash: s.pawnCash + click }));
     },
-  }), [set, go, back, reload, enter, goLogin, signIn, signUp, resetPassword, signOut, spin, checkIn, submitGuess, buyUpgrade, cashOut, buyItem, toggleWatch, addInventory]);
+  }), [
+    set, go, back, reload, enter, goLogin, signIn, signUp, resetPassword, signOut,
+    signInWith, setNewPassword, updateProfile, deleteAccount,
+    spin, checkIn, submitGuess, buyUpgrade, cashOut, buyItem, toggleWatch,
+    addInventory, openItem, updateInventory, deleteInventory, setInventoryPhoto, analyseListing,
+    markNoticesRead, setDealAlerts, addTracked, removeTracked,
+    upgradePlan, restorePurchases, acceptFlipRules, postFlip, reportFlip, blockAuthor, deleteFlip,
+  ]);
+
+  // A tapped alert opens its deal (or the tracker) once the user is signed in.
+  useEffect(() => onPushTap(({ dealId, screen }) => {
+    if (!ref.current.userId) return;
+    if (dealId) actions.openDeal(dealId);
+    else if (screen === 'tracker') go('tracker');
+  }), [actions, go]);
 
   const deal = st.deals.find((d) => d.id === st.dealId) ?? st.deals[0] ?? null;
+  const item = st.inventory.find((i) => i.id === st.itemId) ?? null;
   const me = useMemo(() => myStats(st), [st]);
 
-  return { st, deal, me, pawnRate, pawnClick, ...actions };
+  return { st, deal, item, me, pawnRate, pawnClick, ...actions };
 }
 
 /** Figures derived from the signed-in user's inventory. */
 function myStats(st: State) {
   const sold = st.inventory.filter((i) => i.status === 'Sold');
-  const lifetime = sold.reduce((n, i) => n + i.list - i.buy, 0);
+  const lifetime = sold.reduce((n, i) => n + invProfit(i), 0);
   const avgRoi = sold.length
-    ? Math.round(sold.reduce((n, i) => n + (i.buy > 0 ? (i.list - i.buy) / i.buy : 0), 0) / sold.length * 100)
+    ? Math.round(sold.reduce((n, i) => n + (i.buy > 0 ? invProfit(i) / i.buy : 0), 0) / sold.length * 100)
     : null;
   const board = LIVE
     ? [...st.board, {
