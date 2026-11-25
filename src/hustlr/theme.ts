@@ -38,6 +38,8 @@ export const mix = (hex: string, pct: number) => `rgba(${rgb(hex)},${pct / 100})
 export const A = (pct: number) => mix(C.a, pct);
 /** Gold at `pct`% over transparent. */
 export const G = (pct: number) => mix(C.gold, pct);
+/** Negative red at `pct`% over transparent. */
+export const N = (pct: number) => mix(C.neg, pct);
 /** Hairline (white) at `pct`% over transparent. */
 export const L = (pct: number) => mix('#FFFFFF', pct);
 

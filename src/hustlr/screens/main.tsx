@@ -9,6 +9,7 @@ import { LIVE, useHustlr } from '../store';
 import { A, C, G, L, bgImage, bric, card, hk, kicker, label9, mono, space } from '../theme';
 import { pickPhoto } from '../photos';
 import { EmptyNote, Field, Grid2, LabeledField, Photo, Press, PrimaryButton } from '../ui';
+import { DetailFlashCard, HomeRewardCards } from './rewards';
 
 const pad = { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 110 } as const;
 
@@ -192,6 +193,7 @@ export function Detail() {
             ))}
           </View>
         </View>
+        <DetailFlashCard deal={d} />
         {d.listingUrl ? (
           <>
             <PrimaryButton label={`View on ${d.marketplace} ↗`} onPress={openListing} />
@@ -263,6 +265,7 @@ export function Home() {
         />
         <PrimaryButton label="Analyse listing" onPress={analyse} height={50} radius={12} size={15} />
       </View>
+      <HomeRewardCards />
       <Text style={[kicker, { paddingTop: 26, paddingBottom: 10 }]}>JUMP BACK IN</Text>
       <Grid2 gap={10}>
         {SHORTCUTS.map((t) => (

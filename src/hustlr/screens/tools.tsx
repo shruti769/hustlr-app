@@ -10,7 +10,11 @@ import { billingAvailable, type PaidPlan } from '../billing';
 import { LIVE, useHustlr } from '../store';
 import { A, C, G, L, bgImage, bric, card, hk, kicker, label9, mono } from '../theme';
 import { EmptyNote, Field, Grid2, Photo, Press, Slider } from '../ui';
+import { type Img } from '../data';
+import { LB, LB_SCOPE, LB_TABS, type LbRow, type LbTab } from '../rewards-data';
+import { useRewards } from '../rewards';
 import { AreaChart, Avatar, Check, DealBadge } from './main';
+import { HoldCalc, NoticeRewardCards, ProfileGamiCard, Skel, holdSlotsOf } from './rewards';
 
 const pad = { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 110 } as const;
 
@@ -359,51 +363,115 @@ export function Analyse() {
 }
 
 export function Leaderboard() {
-  const { me } = useHustlr();
+  const { rs, loadBoard } = useRewards();
+  const tab = rs.lbTab;
+  const rows: LbRow[] = LIVE ? (rs.lbRows ?? []) : LB[tab];
+  const mine = rows.find((b) => b.me);
   return (
     <View style={[pad, { gap: 11 }]}>
-      {me.board.map((b, i) => (
-        <View
-          key={b.handle + i}
-          style={[s.row, s.boardRow, b.me ? { backgroundColor: A(8), borderColor: A(35) } : { backgroundColor: C.s1, borderColor: L(8) }]}>
-          <Text style={[mono(13, { w: 600, c: i === 0 ? C.gold : C.t4 }), { width: 22 }]}>{i + 1}</Text>
-          <Avatar initials={b.initials} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={hk(13.5, { w: 600, c: C.t1 })}>{b.name}</Text>
-            <Text style={[mono(10, { c: C.t4 }), { paddingTop: 4 }]}>{b.handle}</Text>
+      <View style={s.segment}>
+        {LB_TABS.map((t) => {
+          const on = tab === t;
+          return (
+            <Press key={t} onPress={() => { if (!on) loadBoard(550, t); }} style={[s.segItem, on && { backgroundColor: C.s2 }]}>
+              <Text style={hk(12.5, { w: 700, c: on ? C.t1 : C.t4 })}>{t}</Text>
+            </Press>
+          );
+        })}
+      </View>
+      <View style={[s.between, { paddingHorizontal: 2 }]}>
+        <Text numberOfLines={1} style={[mono(10, { ls: 1.2, c: C.t4 }), { flexShrink: 1 }]}>{LIVE ? LIVE_SCOPE[tab] : LB_SCOPE[tab]}</Text>
+        {mine ? <Text style={mono(10, { c: C.aink })}>YOU · #{mine.rank}</Text> : null}
+      </View>
+      {rs.lbLoading ? (
+        <>
+          <Skel h={64} />
+          <Skel h={64} />
+          <Skel h={64} />
+          <Skel h={64} style={{ opacity: 0.6 }} />
+        </>
+      ) : rows.map((b, i) => {
+        const lvl = b.me ? rs.level : b.lvl;
+        const meta = [lvl != null ? `LVL ${lvl}` : null, b.flips ? `${b.flips} FLIPS` : null].filter(Boolean).join(' · ');
+        return (
+          <View
+            key={b.handle + i}
+            style={[s.row, s.boardRow, b.me ? { backgroundColor: A(8), borderColor: A(35) } : { backgroundColor: C.s1, borderColor: L(8) }]}>
+            <Text style={[mono(13, { w: 600, c: b.rank === '1' ? C.gold : C.t4 }), { width: 22 }]}>{b.rank}</Text>
+            <Avatar initials={b.initials} size={38} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}>
+                <Text numberOfLines={1} style={[hk(13.5, { w: 600, c: C.t1 }), { flexShrink: 1 }]}>{b.name}</Text>
+                {b.badge ? (
+                  <View style={s.lbBadge}>
+                    <Text numberOfLines={1} style={mono(8, { ls: 0.5, c: C.goldink })}>{b.badge}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text numberOfLines={1} style={[mono(10, { c: C.t4 }), { paddingTop: 4 }]}>{b.handle}{meta ? ` · ${meta}` : ''}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={mono(13, { w: 600, c: C.t1 })}>{b.profit}</Text>
+              <Text style={[mono(10, { c: C.t4 }), { paddingTop: 4 }]}>{b.streak}</Text>
+            </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={mono(13, { w: 600, c: C.t1 })}>{money(b.profit)}</Text>
-            <Text style={[mono(10, { c: C.t4 }), { paddingTop: 4 }]}>{b.streakDays}d streak</Text>
-          </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
 
+const LIVE_SCOPE: Record<LbTab, string> = {
+  Regional: 'YOUR REGION · ALL TIME', Global: 'GLOBAL · ALL TIME', Weekly: 'YOUR REGION · THIS WEEK', Monthly: 'YOUR REGION · THIS MONTH',
+};
+
+type HoldRow = { key: string; name: string; source: string; score: string; img: Img; buy: number; sell: number; open: () => void };
+
 export function Watchlist() {
-  const { st, openDeal } = useHustlr();
-  const watch = st.watchIds.map((id) => st.deals.find((d) => d.id === id)).filter((d): d is Deal => !!d);
+  const { st, openDeal, go } = useHustlr();
+  const { rs, pool, goDeal } = useRewards();
+  const saved: HoldRow[] = st.watchIds
+    .map((id) => st.deals.find((d) => d.id === id))
+    .filter((d): d is Deal => !!d)
+    .map((d) => ({ key: `d${d.id}`, name: d.name, source: d.source, score: d.score.toFixed(1), img: d.img, buy: d.buy, sell: d.resale, open: () => openDeal(d.id) }));
+  const held: HoldRow[] = rs.streamHeld.map((id) => {
+    const x = rs.streamItems.find((y) => y.id === id);
+    const p = pool[x ? x.p % pool.length : 0];
+    return { key: `s${id}`, name: p.name, source: `${p.platform} · ${p.loc.toUpperCase()}`, score: '8.0', img: p.img, buy: p.price, sell: p.resale, open: () => goDeal(p.deal) };
+  });
+  const all = [...saved, ...held];
+  const slots = holdSlotsOf(rs.redeemed);
   return (
     <View style={[pad, { gap: 11 }]}>
-      <Text style={kicker}>SAVED DEALS · WATCHING {watch.length}</Text>
-      {watch.length === 0 && <EmptyNote text="Tap Save on any deal to watch it here." />}
-      {watch.map((w) => (
-        <Press key={w.id} onPress={() => openDeal(w.id)} style={[card(), s.row, { gap: 12, padding: 12 }]} hover={{ borderColor: A(35) }}>
-          <Photo src={w.img} style={{ width: 54, height: 54, borderRadius: 10 }} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={hk(13.5, { w: 600, c: C.t1 })}>{w.name}</Text>
-            <Text style={[mono(10, { c: C.t4 }), { paddingTop: 5 }]}>{w.source}</Text>
-          </View>
-          <View style={s.scorePill}>
-            <View style={s.dot6} />
-            <Text style={mono(12, { c: C.t1 })}>{w.score.toFixed(1)}</Text>
-          </View>
-          <View style={s.viewBtn}>
-            <Text style={hk(13, { w: 700, c: C.ona })}>View</Text>
-          </View>
+      <Text style={kicker}>SAVED DEALS · WATCHING {all.length}</Text>
+      <View style={[card(13), s.row, { gap: 12, paddingVertical: 12, paddingHorizontal: 14 }]}>
+        <Text style={hk(13, { c: C.t2 })}>Hold Pile · {all.length} / {slots}</Text>
+        <View style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: L(8), overflow: 'hidden' }}>
+          <View style={{ height: 5, backgroundColor: C.a, width: `${Math.min(100, (all.length / slots) * 100)}%` }} />
+        </View>
+        <Press onPress={() => go('redeem')}>
+          <Text style={mono(10, { c: C.aink })}>{rs.redeemed.hold5 ? '+5 ACTIVE' : '+5 SLOTS'}</Text>
         </Press>
+      </View>
+      {all.length === 0 && <EmptyNote text="Tap Save on any deal, or Hold in the Live Deal Stream, to watch it here." />}
+      {all.map((w, k) => (
+        <View key={w.key} style={{ gap: 6 }}>
+          <Press onPress={w.open} style={[card(), s.row, { gap: 12, padding: 12 }]} hover={{ borderColor: A(35) }}>
+            <Photo src={w.img} style={{ width: 54, height: 54, borderRadius: 10 }} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={1} style={hk(13.5, { w: 600, c: C.t1 })}>{w.name}</Text>
+              <Text numberOfLines={1} style={[mono(10, { c: C.t4 }), { paddingTop: 5 }]}>{w.source}</Text>
+            </View>
+            <View style={s.scorePill}>
+              <View style={s.dot6} />
+              <Text style={mono(12, { c: C.t1 })}>{w.score}</Text>
+            </View>
+            <View style={s.viewBtn}>
+              <Text style={hk(13, { w: 700, c: C.ona })}>View</Text>
+            </View>
+          </Press>
+          <HoldCalc k={k} buy={w.buy} sell={w.sell} />
+        </View>
       ))}
     </View>
   );
@@ -594,6 +662,7 @@ export function Profile() {
           <Text style={mono(9, { ls: 0.5, c: C.aink })}>{pr.plan.toUpperCase()} PLAN</Text>
         </View>
       </View>
+      <ProfileGamiCard />
       <Grid2 gap={10}>
         {stats.map((x) => (
           <View key={x.label} style={[card(), { padding: 15, flex: 1 }]}>
@@ -641,6 +710,7 @@ export function Notifications() {
   useEffect(() => { markNoticesRead(); }, [markNoticesRead]);
   return (
     <View style={[pad, { gap: 11 }]}>
+      <NoticeRewardCards />
       {st.notices.length === 0 && <EmptyNote text="You're all caught up." />}
       {st.notices.map((n) => (
         <Press
@@ -683,6 +753,9 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   boardRow: { gap: 12, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 13, borderWidth: 1 },
+  segment: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: C.s1, borderWidth: 1, borderColor: L(6) },
+  segItem: { flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  lbBadge: { flexShrink: 0, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 5, backgroundColor: G(12) },
   scorePill: {
     flexDirection: 'row', gap: 5, alignItems: 'center', paddingVertical: 4, paddingHorizontal: 9,
     borderRadius: 6, borderWidth: 1, borderColor: L(10),

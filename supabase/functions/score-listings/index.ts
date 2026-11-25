@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
     .in('external_id', rows.map((r) => r.external_id));
   const known = new Set((existing ?? []).map((d) => d.external_id));
   const newSteals: { id: number; name: string; marketplace: string }[] = [];
+  const newDeals: { id: number; name: string; marketplace: string }[] = [];
 
   let scored = 0;
   let rejected = 0;
@@ -65,8 +66,11 @@ Deno.serve(async (req) => {
       const { data: deal, error: dealError } = await admin.from('deals')
         .upsert(dealRow(listing, s), { onConflict: 'marketplace,external_id' }).select('id').single();
       if (dealError) throw dealError;
-      if (s.badge === 'STEAL' && s.score >= ALERT_MIN_SCORE && !known.has(listing.externalId)) {
-        newSteals.push({ id: deal.id, name: listing.title, marketplace: listing.marketplace });
+      if (!known.has(listing.externalId)) {
+        newDeals.push({ id: deal.id, name: listing.title, marketplace: listing.marketplace });
+        if (s.badge === 'STEAL' && s.score >= ALERT_MIN_SCORE) {
+          newSteals.push({ id: deal.id, name: listing.title, marketplace: listing.marketplace });
+        }
       }
       scored++;
       await finish(row.id, 'scored', s.by);
@@ -95,6 +99,24 @@ Deno.serve(async (req) => {
       data: { dealId: steal.id },
     });
   }
+
+  // Armed Flash Alerts fire on any new deal in their category, ahead of the daily cap.
+  let flashed = 0;
+  for (const d of newDeals) {
+    const { data: users, error: flashError } = await admin.rpc('fan_out_flash_alerts', { p_deal_id: d.id });
+    if (flashError) {
+      console.warn('flash fan-out failed', flashError.message);
+      continue;
+    }
+    const ids = ((users ?? []) as { user_id: string }[]).map((u) => u.user_id);
+    if (!ids.length) continue;
+    flashed += await pushToUsers(admin, ids, {
+      title: '⚡ Flash Alert',
+      body: `${d.name.slice(0, 60)} just listed on ${d.marketplace}`,
+      data: { dealId: d.id },
+    });
+  }
+  alerted += flashed;
 
   if (run) {
     await admin.from('pipeline_runs').update({

@@ -89,7 +89,7 @@ const EMPTY_DATA = {
 const INITIAL: State = {
   screen: 'splash', tab: 'deals', stack: [], cat: 'All', dealId: 1,
   calc: { buy: 120, sell: 330, ship: 18, other: 8, fee: 12.9 },
-  credits: 340, streak: 3, checkedIn: false, notified: false,
+  credits: 340, streak: 4, checkedIn: false, notified: false,
   guess: 150,
   pawnCash: 210, levels: { polish: 1, case: 1, staff: 0, neon: 0 },
   spinsLeft: 3, spinning: false, angle: 0, spinResult: null, challengesOpen: false,
@@ -282,6 +282,15 @@ function useHustlrState() {
         dataStatus: 'ready',
       });
     } catch (e) {
+      // An admin suspended this account: sign out and say why.
+      if (/account suspended/i.test(e instanceof Error ? e.message : String(e))) {
+        await db.auth.signOut();
+        set({
+          ...EMPTY_DATA, userId: null, dataStatus: 'idle', screen: 'login', stack: [],
+          authNotice: 'This account has been suspended. Contact support if you think this is a mistake.',
+        });
+        return;
+      }
       console.warn('[hustlr] failed to load data', e);
       set({ dataStatus: 'error' });
     }
@@ -654,20 +663,23 @@ function useHustlrState() {
 
   // ─────────────────────────────────────────────────────── user data
 
-  const toggleWatch = useCallback(async (dealId: number) => {
+  /** Saves or unsaves a deal (the Hold Pile). Returns an error message, if any. */
+  const toggleWatch = useCallback(async (dealId: number): Promise<string | null> => {
     const watching = ref.current.watchIds.includes(dealId);
     const flip = (on: boolean) => set((s) => ({
       watchIds: on ? [...s.watchIds.filter((x) => x !== dealId), dealId] : s.watchIds.filter((x) => x !== dealId),
     }));
     flip(!watching);
-    if (!supabase) return;
+    if (!supabase) return null;
     const { error } = watching
       ? await supabase.from('watchlist').delete().eq('deal_id', dealId)
       : await supabase.from('watchlist').insert({ deal_id: dealId });
     if (error) {
       flip(watching);
       console.warn('[hustlr] watchlist update failed', error.message);
+      return error.message;
     }
+    return null;
   }, [set]);
 
   const addInventory = useCallback(async (d: AddDraft): Promise<string | null> => {

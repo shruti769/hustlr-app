@@ -25,6 +25,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { RewardsProvider } from '@/hustlr/rewards';
 import { HustlrProvider } from '@/hustlr/store';
 import { C } from '@/hustlr/theme';
 
@@ -62,8 +63,10 @@ function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.bg }}>
       <SafeAreaProvider>
         <HustlrProvider>
-          <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }} />
+          <RewardsProvider>
+            <StatusBar style="light" />
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }} />
+          </RewardsProvider>
         </HustlrProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

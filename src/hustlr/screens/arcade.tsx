@@ -11,6 +11,7 @@ import { until, type StoreItem } from '../model';
 import { useHustlr } from '../store';
 import { A, C, G, L, bgImage, bric, card, hk, kicker, mono } from '../theme';
 import { EmptyNote, Grid2, Press, ScalePress, Slider } from '../ui';
+import { ArcadeLevelCard, ArcadeRewardsBlock, HohPromo } from './rewards';
 
 const pad = { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 110 } as const;
 
@@ -124,6 +125,10 @@ export function Arcade() {
         </View>
       </View>
 
+      <ArcadeLevelCard />
+
+      <HohPromo />
+
       <View onLayout={(e) => setFeatureW(e.nativeEvent.layout.width - 2)} style={[s.feature, bgImage(`radial-gradient(260px 200px at 82% 55%, ${A(14)}, rgba(32,197,101,0) 72%), linear-gradient(140deg, ${C.s3} 0%, ${C.s1} 70%)`)]}>
         <Image source={ART.prizeSpin} contentFit="contain" style={s.featureArt} />
         <View style={{ gap: 10, padding: 20, width: featureW ? featureW * 0.6 + 40 : '60%' }}>
@@ -205,6 +210,8 @@ export function Arcade() {
           </View>
         )}
       </Press>
+
+      <ArcadeRewardsBlock />
 
       <View style={[card(18), { padding: 18 }]}>
         <View style={s.between}>

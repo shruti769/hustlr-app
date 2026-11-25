@@ -56,5 +56,11 @@ Deno.serve(async (req) => {
     plan_source: event.store ?? 'revenuecat',
   }).eq('id', userId);
   if (error) return json({ error: error.message }, 500);
+
+  // Mogul pays 10 Flash Alert tokens with each month it's bought or renewed.
+  if (plan === 'mogul' && (event.type === 'INITIAL_PURCHASE' || event.type === 'RENEWAL')) {
+    const { error: grantError } = await adminClient().rpc('admin_grant', { p_user: userId, p_xp: 0, p_tickets: 0, p_flash: 10 });
+    if (grantError) console.warn('flash grant failed', grantError.message);
+  }
   return json({ userId, plan });
 });

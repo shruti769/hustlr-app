@@ -42,7 +42,8 @@ export type Screen =
   | 'home' | 'deals' | 'detail' | 'fliptok' | 'inventory' | 'add' | 'item' | 'profile' | 'settings'
   | 'dashboard' | 'calculator' | 'tracker' | 'trends' | 'analyse' | 'leaderboard'
   | 'watchlist' | 'prizes' | 'plans' | 'notifications'
-  | 'arcade' | 'priceit' | 'pawn' | 'spin' | 'store';
+  | 'arcade' | 'priceit' | 'pawn' | 'spin' | 'store'
+  | 'hoh' | 'rspin' | 'redeem' | 'flash' | 'missed' | 'stream' | 'achievements' | 'upgrades' | 'customise';
 
 export const TITLES: Partial<Record<Screen, string>> = {
   home: 'HUSTLR', deals: 'Hot Deals', detail: 'Deal Detail', fliptok: 'Flip Tok',
@@ -51,7 +52,14 @@ export const TITLES: Partial<Record<Screen, string>> = {
   analyse: 'Analyse Listing', leaderboard: 'Leaderboard', watchlist: 'Watchlist',
   prizes: 'Prize Draw', plans: 'Plans', notifications: 'Notifications',
   arcade: 'Arcade', priceit: 'Price It Right', pawn: 'Pawn Empire', spin: 'Prize Spin', store: 'Credit Store',
+  hoh: 'HUSTLE or HOLD', rspin: 'Reward Spinner', redeem: 'Redeem Rewards', flash: 'Flash Alert Tokens',
+  missed: 'Missed Connections', stream: 'Live Deal Stream', achievements: 'Achievements', upgrades: 'Premium Upgrades', customise: 'Customise',
 };
+
+/** Screens inside the Arcade: no tab is lit and the Arcade button hides. */
+export const ARCADE_SCREENS: Screen[] = [
+  'arcade', 'priceit', 'pawn', 'spin', 'store', 'hoh', 'rspin', 'redeem', 'flash', 'achievements', 'upgrades', 'customise',
+];
 
 export const HEADER_ACTIONS: Partial<Record<Screen, { label: string; to: Screen }>> = {
   inventory: { label: '+ Add', to: 'add' },
@@ -199,6 +207,10 @@ export const PROFILE_META = [
 
 export const TOOLS: { label: string; to: Screen }[] = [
   { label: 'Credit Store', to: 'store' },
+  { label: 'Achievements', to: 'achievements' },
+  { label: 'Flash Tokens', to: 'flash' },
+  { label: 'Premium Upgrades', to: 'upgrades' },
+  { label: 'Customise', to: 'customise' },
   { label: 'Dashboard', to: 'dashboard' },
   { label: 'Calculator', to: 'calculator' },
   { label: 'Price Tracker', to: 'tracker' },

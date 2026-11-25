@@ -5,7 +5,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { HEADER_ACTIONS, TITLES, type Screen } from './data';
+import { ARCADE_SCREENS, HEADER_ACTIONS, TITLES, type Screen } from './data';
+import { useRewards } from './rewards';
 import { LIVE, isTabRoot, useHustlr } from './store';
 import { A, C, L, bgImage, bric, mono } from './theme';
 import { Press, ScalePress } from './ui';
@@ -39,9 +40,14 @@ export function StatusBarMock() {
 
 export function Header({ screen }: { screen: Screen }) {
   const { st, set, deal, go, back, toggleWatch } = useHustlr();
+  const { showToast } = useRewards();
   const watching = !!deal && st.watchIds.includes(deal.id);
+  const save = async (id: number) => {
+    const err = await toggleWatch(id);
+    if (err) showToast({ kind: 'warn', kicker: 'HOLD PILE FULL', title: 'Redeem +5 slots to save more' });
+  };
   const action = screen === 'detail' && deal
-    ? { label: watching ? 'Saved ✓' : 'Save', onPress: () => toggleWatch(deal.id) }
+    ? { label: watching ? 'Saved ✓' : 'Save', onPress: () => save(deal.id) }
     : screen === 'tracker'
       ? { label: st.trackForm ? 'Close' : '+ Track', onPress: () => set({ trackForm: !st.trackForm }) }
       : HEADER_ACTIONS[screen] && { label: HEADER_ACTIONS[screen]!.label, onPress: () => go(HEADER_ACTIONS[screen]!.to) };
@@ -127,8 +133,6 @@ const TABS: { key: Screen; label: string; icon: (c: string) => React.ReactNode }
     ),
   },
 ];
-
-const ARCADE_SCREENS: Screen[] = ['arcade', 'priceit', 'pawn', 'spin', 'store'];
 
 export const TAB_BAR_BODY = 9 + 52;
 
